@@ -1,203 +1,132 @@
 /**
- * Complete Cookie Consent Solution v5.0
- * - GDPR/TCF compliant
- * - Consent Mode v2+ ready
- * - Automatic language detection
- * - Full GTM/GA4 integration
- * - Future-proof architecture
+ * Complete GDPR Cookie Consent Solution v4.0
+ * - Automatic language detection (IP → browser → default)
+ * - Full cookie management
+ * - Responsive design
+ * - GTM/GA4 compatible
  */
 
-// ====================== CONFIGURATION ======================
-const cookieConfig = {
+// ==================== CONFIGURATION ====================
+const config = {
   debug: true,
-  consentMode: {
-    default: {
-      ad_storage: 'denied',
-      analytics_storage: 'denied',
-      functionality_storage: 'denied',
-      personalization_storage: 'denied',
-      security_storage: 'granted'
-    },
-    regions: {
-      EU: {
-        ad_storage: 'denied',
-        analytics_storage: 'denied',
-        functionality_storage: 'denied',
-        personalization_storage: 'denied',
-        security_storage: 'granted'
-      }
-    }
-  },
-  languages: {
-    default: 'en',
-    supported: ['en', 'fr', 'de', 'es', 'it', 'pt', 'nl'],
-    countryMapping: {
-      FR: 'fr', BE: 'fr', LU: 'fr', CH: 'de',
-      DE: 'de', AT: 'de', ES: 'es', IT: 'it',
-      PT: 'pt', BR: 'pt', NL: 'nl', UK: 'en',
-      US: 'en', CA: 'en', AU: 'en'
-    }
-  },
-  cookie: {
-    name: 'cookie_consent',
-    expiryDays: 365,
-    essentialCookies: ['wordpress_', 'cookie_consent', 'PHPSESSID']
-  },
-  ui: {
-    position: 'bottom-right',
-    theme: {
-      primary: '#2ecc71',
-      secondary: '#3498db',
-      danger: '#e74c3c',
-      text: '#2c3e50',
-      background: '#ffffff'
-    }
+  defaultLanguage: 'en',
+  supportedLanguages: ['en', 'fr', 'de', 'es', 'it', 'pt'],
+  cookieExpiry: 365, // days
+  bannerPosition: 'bottom-right',
+  colors: {
+    primary: '#2ecc71',
+    secondary: '#3498db',
+    danger: '#e74c3c',
+    textDark: '#2c3e50',
+    textLight: '#7f8c8d',
+    background: '#ffffff'
   }
 };
 
-// ====================== CORE INITIALIZATION ======================
-document.addEventListener('DOMContentLoaded', function() {
-  initConsentFramework();
-});
+// ==================== CORE FUNCTIONALITY ====================
 
-function initConsentFramework() {
-  // Initialize Consent Mode first
-  initConsentMode();
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initCookieConsent);
+
+function initCookieConsent() {
+  // 1. Detect user's language
+  const userLanguage = detectUserLanguage();
+  log('Detected language:', userLanguage);
+
+  // 2. Check for existing consent
+  const existingConsent = getConsentCookie();
   
-  // Check for existing consent
-  const consentData = getConsentData();
-  
-  if (!consentData) {
-    // No consent yet - show banner
-    const userLanguage = detectUserLanguage();
-    renderBanner(userLanguage);
-    initEventListeners();
+  // 3. If no consent, show banner
+  if (!existingConsent) {
+    setupBanner(userLanguage);
+    showBanner();
   } else {
-    // Consent exists - update Consent Mode
-    updateConsentMode(consentData);
+    applyConsent(existingConsent);
   }
 }
 
-// ====================== CONSENT MODE INTEGRATION ======================
-function initConsentMode() {
-  // Initialize dataLayer if not exists
-  window.dataLayer = window.dataLayer || [];
-  
-  // Set default consent
-  gtag('consent', 'default', cookieConfig.consentMode.default);
-  
-  // Region-specific defaults
-  if (isInEU()) {
-    gtag('consent', 'default', cookieConfig.consentMode.regions.EU);
-  }
-}
+// ==================== LANGUAGE DETECTION ====================
 
-function updateConsentMode(consentData) {
-  const consentParams = {
-    ad_storage: consentData.marketing ? 'granted' : 'denied',
-    analytics_storage: consentData.analytics ? 'granted' : 'denied',
-    functionality_storage: consentData.functional ? 'granted' : 'denied',
-    personalization_storage: consentData.personalization ? 'granted' : 'denied',
-    security_storage: 'granted'
-  };
-  
-  gtag('consent', 'update', consentParams);
-  
-  // For TCF compliance
-  if (window.__tcfapi) {
-    initTCF(consentData);
-  }
-}
-
-function initTCF(consentData) {
-  window.__tcfapi('addEventListener', 2, function(tcData, success) {
-    if (success && tcData.eventStatus === 'tcloaded') {
-      // Update TC String based on consentData
-      // This would be more detailed in a real implementation
-      const tcString = generateTCString(consentData);
-      window.__tcfapi('update', 2, tcString);
-    }
-  });
-}
-
-// ====================== LANGUAGE DETECTION ======================
 function detectUserLanguage() {
-  // 1. Try from dataLayer (IP detection)
+  // Try from IP detection (dataLayer)
   if (window.dataLayer && window.dataLayer.length) {
     const locationData = window.dataLayer.find(item => item.country || item.language);
     if (locationData) {
-      // Direct language code
+      // Check direct language first
       if (locationData.language) {
         const langCode = locationData.language.split('-')[0].toLowerCase();
-        if (cookieConfig.languages.supported.includes(langCode)) {
+        if (config.supportedLanguages.includes(langCode)) {
           return langCode;
         }
       }
       
-      // Country mapping
-      if (locationData.country && cookieConfig.languages.countryMapping[locationData.country]) {
-        return cookieConfig.languages.countryMapping[locationData.country];
+      // Check country mapping
+      if (locationData.country) {
+        const countryMap = {
+          // Europe
+          'FR': 'fr', 'BE': 'fr', 'LU': 'fr', 'CH': 'de',
+          'DE': 'de', 'AT': 'de', 'ES': 'es', 'IT': 'it',
+          'PT': 'pt', 'BR': 'pt', 'RU': 'ru',
+          
+          // Americas
+          'US': 'en', 'CA': 'en', 'MX': 'es', 'AR': 'es',
+          
+          // Asia
+          'JP': 'ja', 'CN': 'zh', 'TW': 'zh', 'HK': 'zh',
+          
+          // Add more as needed
+        };
+        const mappedLang = countryMap[locationData.country];
+        if (mappedLang && config.supportedLanguages.includes(mappedLang)) {
+          return mappedLang;
+        }
       }
     }
   }
   
-  // 2. Browser language fallback
-  const browserLang = (navigator.language || cookieConfig.languages.default).split('-')[0].toLowerCase();
-  if (cookieConfig.languages.supported.includes(browserLang)) {
+  // Fallback to browser language
+  const browserLang = (navigator.language || config.defaultLanguage).split('-')[0].toLowerCase();
+  if (config.supportedLanguages.includes(browserLang)) {
     return browserLang;
   }
   
-  // 3. Default fallback
-  return cookieConfig.languages.default;
+  // Final fallback
+  return config.defaultLanguage;
 }
 
-// ====================== BANNER RENDERING ======================
-function renderBanner(language) {
-  if (document.getElementById('cc-banner')) return;
-  
+// ==================== BANNER SETUP ====================
+
+function setupBanner(language) {
+  if (document.getElementById('cookieConsentBanner')) return;
+
   const t = getTranslations(language);
   
   const bannerHTML = `
-    <div id="cc-banner" class="cc-banner">
+    <div id="cookieConsentBanner" class="cc-banner">
       <div class="cc-container">
         <div class="cc-content">
-          <h3>${t.title}</h3>
-          <p>${t.description} <a href="/privacy" class="cc-link">${t.privacy}</a></p>
-          
-          <div class="cc-categories">
-            <div class="cc-category">
-              <label class="cc-toggle">
-                <input type="checkbox" disabled checked>
-                <span class="cc-slider"></span>
-                <span class="cc-label">${t.essential}</span>
-              </label>
-              <p class="cc-desc">${t.essentialDesc}</p>
-            </div>
-            
-            <div class="cc-category">
-              <label class="cc-toggle">
-                <input type="checkbox" data-category="analytics">
-                <span class="cc-slider"></span>
-                <span class="cc-label">${t.analytics}</span>
-              </label>
-              <p class="cc-desc">${t.analyticsDesc}</p>
-            </div>
-            
-            <div class="cc-category">
-              <label class="cc-toggle">
-                <input type="checkbox" data-category="marketing">
-                <span class="cc-slider"></span>
-                <span class="cc-label">${t.marketing}</span>
-              </label>
-              <p class="cc-desc">${t.marketingDesc}</p>
-            </div>
-          </div>
+          <h3 class="cc-title">${t.title}</h3>
+          <p class="cc-text">${t.description} <a href="/privacy" class="cc-link">${t.privacy}</a></p>
         </div>
-        
         <div class="cc-buttons">
-          <button type="button" class="cc-btn cc-reject">${t.rejectAll}</button>
-          <button type="button" class="cc-btn cc-save">${t.saveSettings}</button>
           <button type="button" class="cc-btn cc-accept">${t.acceptAll}</button>
+          <button type="button" class="cc-btn cc-reject">${t.rejectAll}</button>
+          <button type="button" class="cc-btn cc-customize">${t.customize}</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="ccSettingsModal" class="cc-modal">
+      <div class="cc-modal-content">
+        <div class="cc-modal-header">
+          <h3>${t.customizeTitle}</h3>
+          <button class="cc-close">&times;</button>
+        </div>
+        <div class="cc-modal-body">
+          <!-- Cookie preference toggles would go here -->
+        </div>
+        <div class="cc-modal-footer">
+          <button class="cc-btn cc-save">${t.saveSettings}</button>
         </div>
       </div>
     </div>
@@ -207,169 +136,101 @@ function renderBanner(language) {
         position: fixed;
         ${getBannerPosition()};
         max-width: 600px;
-        background: ${cookieConfig.ui.theme.background};
+        background: ${config.colors.background};
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         border-radius: 8px;
         padding: 20px;
         z-index: 9999;
         margin: 20px;
-        font-family: system-ui, -apple-system, sans-serif;
-        animation: ccFadeIn 0.3s ease-out;
+        display: none;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .cc-title {
+        color: ${config.colors.textDark};
+        margin-top: 0;
+        font-size: 1.2em;
+      }
+      
+      .cc-text {
+        color: ${config.colors.textLight};
+        line-height: 1.5;
+        margin-bottom: 15px;
+      }
+      
+      .cc-link {
+        color: ${config.colors.secondary};
+        text-decoration: underline;
       }
       
       .cc-buttons {
         display: flex;
         gap: 10px;
-        margin-top: 20px;
+        flex-wrap: wrap;
       }
       
       .cc-btn {
-        padding: 10px 20px;
+        padding: 8px 16px;
         border-radius: 4px;
         border: none;
         cursor: pointer;
         font-weight: 500;
-        flex: 1;
+        transition: all 0.2s;
       }
       
       .cc-accept {
-        background: ${cookieConfig.ui.theme.primary};
+        background: ${config.colors.primary};
         color: white;
       }
       
       .cc-reject {
-        background: ${cookieConfig.ui.theme.danger};
+        background: ${config.colors.danger};
         color: white;
       }
       
-      .cc-save {
-        background: ${cookieConfig.ui.theme.secondary};
+      .cc-customize {
+        background: ${config.colors.secondary};
         color: white;
       }
       
-      /* Toggle switches */
-      .cc-toggle {
-        display: flex;
-        align-items: center;
-        margin: 10px 0;
-        cursor: pointer;
+      /* Modal styles */
+      .cc-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
       }
       
-      /* Responsive design */
+      /* Responsive styles */
       @media (max-width: 768px) {
         .cc-banner {
           left: 10px !important;
           right: 10px !important;
           bottom: 10px !important;
+          top: auto !important;
         }
         
         .cc-buttons {
           flex-direction: column;
         }
-      }
-      
-      @keyframes ccFadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+        
+        .cc-btn {
+          width: 100%;
+        }
       }
     </style>
   `;
-  
+
   document.body.insertAdjacentHTML('beforeend', bannerHTML);
-}
-
-// ====================== EVENT HANDLING ======================
-function initEventListeners() {
-  // Accept all
-  document.querySelector('.cc-accept')?.addEventListener('click', () => {
-    saveConsent({
-      essential: true,
-      analytics: true,
-      marketing: true,
-      personalization: true
-    });
-  });
-  
-  // Reject all
-  document.querySelector('.cc-reject')?.addEventListener('click', () => {
-    saveConsent({
-      essential: true,
-      analytics: false,
-      marketing: false,
-      personalization: false
-    });
-  });
-  
-  // Save preferences
-  document.querySelector('.cc-save')?.addEventListener('click', () => {
-    const consent = {
-      essential: true,
-      analytics: document.querySelector('[data-category="analytics"]').checked,
-      marketing: document.querySelector('[data-category="marketing"]').checked,
-      personalization: document.querySelector('[data-category="personalization"]')?.checked || false
-    };
-    saveConsent(consent);
-  });
-}
-
-// ====================== CONSENT MANAGEMENT ======================
-function saveConsent(consentData) {
-  const consent = {
-    version: '5.0',
-    date: new Date().toISOString(),
-    region: isInEU() ? 'EU' : 'OTHER',
-    ...consentData
-  };
-  
-  // Set cookie
-  document.cookie = `${cookieConfig.cookie.name}=${encodeURIComponent(JSON.stringify(consent))}; max-age=${cookieConfig.cookie.expiryDays * 86400}; path=/; SameSite=Lax; Secure`;
-  
-  // Update Consent Mode
-  updateConsentMode(consent);
-  
-  // Hide banner
-  document.getElementById('cc-banner').style.animation = 'ccFadeOut 0.3s ease-out';
-  setTimeout(() => document.getElementById('cc-banner').remove(), 300);
-  
-  // Load appropriate scripts
-  loadCookiesAccordingToConsent(consent);
-}
-
-function getConsentData() {
-  const cookie = document.cookie.split('; ')
-    .find(row => row.startsWith(`${cookieConfig.cookie.name}=`));
-    
-  return cookie ? JSON.parse(decodeURIComponent(cookie.split('=')[1])) : null;
-}
-
-function loadCookiesAccordingToConsent(consent) {
-  if (consent.marketing) {
-    loadMarketingTags();
-  }
-  
-  if (consent.analytics) {
-    loadAnalyticsTags();
-  }
-}
-
-function loadMarketingTags() {
-  // Implementation would load Facebook Pixel, Google Ads, etc.
-}
-
-function loadAnalyticsTags() {
-  // Implementation would load GA4, GTM, etc.
-}
-
-// ====================== UTILITIES ======================
-function isInEU() {
-  // Simplified EU country check - in production use proper geo-detection
-  const euCountries = ['AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI','FR','GR','HR','HU','IE','IT','LT','LU','LV','MT','NL','PL','PT','RO','SE','SI','SK'];
-  const country = window.dataLayer?.find(item => item.country)?.country;
-  return country && euCountries.includes(country);
+  setupEventListeners();
 }
 
 function getBannerPosition() {
-  switch(cookieConfig.ui.position) {
+  switch(config.bannerPosition) {
     case 'bottom-left': return 'left: 20px; bottom: 20px;';
     case 'top-right': return 'right: 20px; top: 20px;';
     case 'top-left': return 'left: 20px; top: 20px;';
@@ -377,49 +238,175 @@ function getBannerPosition() {
   }
 }
 
+// ==================== TRANSLATIONS ====================
+
 function getTranslations(lang) {
   const translations = {
     en: {
-      title: "Cookie Preferences",
-      description: "We use cookies to enhance your experience and analyze our traffic.",
+      title: "We Value Your Privacy",
+      description: "We use cookies to enhance your experience and analyze our traffic. By clicking 'Accept All', you consent to our use of cookies.",
       privacy: "Privacy Policy",
       acceptAll: "Accept All",
       rejectAll: "Reject All",
-      saveSettings: "Save Settings",
-      essential: "Essential Cookies",
-      essentialDesc: "Required for basic site functionality",
-      analytics: "Analytics Cookies",
-      analyticsDesc: "Help us improve our website",
-      marketing: "Marketing Cookies",
-      marketingDesc: "Used for personalized advertising"
+      customize: "Customize",
+      customizeTitle: "Cookie Preferences",
+      saveSettings: "Save Settings"
     },
     fr: {
-      title: "Préférences des Cookies",
-      description: "Nous utilisons des cookies pour améliorer votre expérience et analyser notre trafic.",
+      title: "Nous Respectons Votre Vie Privée",
+      description: "Nous utilisons des cookies pour améliorer votre expérience et analyser notre trafic. En cliquant 'Tout Accepter', vous consentez à notre utilisation des cookies.",
       privacy: "Politique de Confidentialité",
       acceptAll: "Tout Accepter",
       rejectAll: "Tout Refuser",
-      saveSettings: "Enregistrer",
-      essential: "Cookies Essentiels",
-      essentialDesc: "Nécessaires au fonctionnement du site",
-      analytics: "Cookies d'Analyse",
-      analyticsDesc: "Nous aident à améliorer le site",
-      marketing: "Cookies Marketing",
-      marketingDesc: "Utilisés pour la publicité personnalisée"
+      customize: "Personnaliser",
+      customizeTitle: "Préférences des Cookies",
+      saveSettings: "Enregistrer"
+    },
+    de: {
+      title: "Wir Schätzen Ihre Privatsphäre",
+      description: "Wir verwenden Cookies, um Ihr Erlebnis zu verbessern und unseren Traffic zu analysieren. Wenn Sie auf 'Alle Akzeptieren' klicken, stimmen Sie unserer Verwendung von Cookies zu.",
+      privacy: "Datenschutzrichtlinie",
+      acceptAll: "Alle Akzeptieren",
+      rejectAll: "Alle Ablehnen",
+      customize: "Anpassen",
+      customizeTitle: "Cookie-Einstellungen",
+      saveSettings: "Einstellungen speichern"
+    },
+    es: {
+      title: "Respetamos Su Privacidad",
+      description: "Utilizamos cookies para mejorar su experiencia y analizar nuestro tráfico. Al hacer clic en 'Aceptar Todo', usted acepta nuestro uso de cookies.",
+      privacy: "Política de Privacidad",
+      acceptAll: "Aceptar Todo",
+      rejectAll: "Rechazar Todo",
+      customize: "Personalizar",
+      customizeTitle: "Preferencias de Cookies",
+      saveSettings: "Guardar Configuración"
     }
-    // Add other languages as needed
   };
+
+  return translations[lang] || translations[config.defaultLanguage];
+}
+
+// ==================== EVENT HANDLERS ====================
+
+function setupEventListeners() {
+  // Accept all
+  document.querySelector('.cc-accept')?.addEventListener('click', () => {
+    setConsent({level: 'all'});
+    hideBanner();
+  });
   
-  return translations[lang] || translations[cookieConfig.languages.default];
+  // Reject all
+  document.querySelector('.cc-reject')?.addEventListener('click', () => {
+    setConsent({level: 'essential'});
+    hideBanner();
+  });
+  
+  // Customize
+  document.querySelector('.cc-customize')?.addEventListener('click', () => {
+    document.getElementById('ccSettingsModal').style.display = 'block';
+  });
+  
+  // Save settings
+  document.querySelector('.cc-save')?.addEventListener('click', () => {
+    // In a full implementation, gather settings from modal
+    setConsent({level: 'custom', preferences: {}});
+    document.getElementById('ccSettingsModal').style.display = 'none';
+    hideBanner();
+  });
+  
+  // Close modal
+  document.querySelector('.cc-close')?.addEventListener('click', () => {
+    document.getElementById('ccSettingsModal').style.display = 'none';
+  });
 }
 
-// ====================== GLOBAL FUNCTIONS ======================
-function gtag() {
+// ==================== CONSENT MANAGEMENT ====================
+
+function setConsent(consentData) {
+  const cookieValue = JSON.stringify({
+    version: '4.0',
+    date: new Date().toISOString(),
+    ...consentData
+  });
+  
+  document.cookie = `cookie_consent=${cookieValue}; max-age=${config.cookieExpiry * 86400}; path=/; SameSite=Lax; Secure`;
+  
+  applyConsent(consentData);
+  log('Consent set:', consentData);
+}
+
+function getConsentCookie() {
+  const cookie = document.cookie.split('; ')
+    .find(row => row.startsWith('cookie_consent='));
+    
+  return cookie ? JSON.parse(cookie.split('=')[1]) : null;
+}
+
+function applyConsent(consent) {
+  if (!consent) return;
+  
+  // Update GTM/GA4 consent
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push(arguments);
+  window.dataLayer.push({
+    event: 'cookie_consent_update',
+    consent_level: consent.level
+  });
+  
+  // Apply cookie settings
+  if (consent.level === 'essential') {
+    clearNonEssentialCookies();
+  }
+  
+  log('Applied consent:', consent);
 }
 
-// Initialize if DOM already loaded
+function clearNonEssentialCookies() {
+  // Implementation would scan and remove non-essential cookies
+  log('Clearing non-essential cookies');
+}
+
+// ==================== UI FUNCTIONS ====================
+
+function showBanner() {
+  const banner = document.getElementById('cookieConsentBanner');
+  if (banner) {
+    banner.style.display = 'block';
+    banner.style.animation = 'fadeIn 0.3s ease-out';
+  }
+}
+
+function hideBanner() {
+  const banner = document.getElementById('cookieConsentBanner');
+  if (banner) {
+    banner.style.animation = 'fadeOut 0.3s ease-out';
+    setTimeout(() => banner.style.display = 'none', 300);
+  }
+}
+
+// ==================== UTILITIES ====================
+
+function log(...args) {
+  if (config.debug) {
+    console.log('[CookieConsent]', ...args);
+  }
+}
+
+// Add animation styles
+document.head.insertAdjacentHTML('beforeend', `
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(20px); }
+    }
+  </style>
+`);
+
+// Initialize
 if (document.readyState === 'complete') {
-  initConsentFramework();
+  initCookieConsent();
 }
