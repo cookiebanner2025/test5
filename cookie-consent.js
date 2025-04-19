@@ -1,10 +1,9 @@
 /**
- * Ultimate GDPR Cookie Consent Solution v3.0
- * - Automatic language detection based on location
- * - Premium UI/UX design with matching colors
- * - Automatic cookie categorization
- * - Periodic cookie scanning
- * - Floating button that shows/hides banner
+ * Ultimate GDPR Cookie Consent Solution v3.1
+ * - Added automatic translation feature
+ * - Supports Consent Mode v2 and future updates
+ * - Works with GTM, GA4, and all marketing platforms
+ * - Maintains all original functionality
  */
 
 // Initialize dataLayer for Google Tag Manager
@@ -86,7 +85,8 @@ const translations = {
         advertisingDesc: "Deliver relevant ads",
         other: "Other Cookies",
         otherDesc: "Uncategorized cookies",
-        save: "Save Preferences"
+        save: "Save Preferences",
+        language: "English"
     },
     fr: {
         title: "Nous respectons votre vie privée",
@@ -105,7 +105,8 @@ const translations = {
         advertisingDesc: "Diffusent des publicités",
         other: "Autres cookies",
         otherDesc: "Cookies non catégorisés",
-        save: "Enregistrer"
+        save: "Enregistrer",
+        language: "Français"
     },
     de: {
         title: "Wir schätzen Ihre Privatsphäre",
@@ -124,7 +125,8 @@ const translations = {
         advertisingDesc: "Liefern relevante Anzeigen",
         other: "Andere Cookies",
         otherDesc: "Nicht kategorisierte Cookies",
-        save: "Einstellungen speichern"
+        save: "Einstellungen speichern",
+        language: "Deutsch"
     },
     es: {
         title: "Valoramos su privacidad",
@@ -143,7 +145,8 @@ const translations = {
         advertisingDesc: "Muestran anuncios relevantes",
         other: "Otras cookies",
         otherDesc: "Cookies no categorizadas",
-        save: "Guardar preferencias"
+        save: "Guardar preferencias",
+        language: "Español"
     },
     it: {
         title: "Rispettiamo la tua privacy",
@@ -162,7 +165,8 @@ const translations = {
         advertisingDesc: "Mostrano annunci pertinenti",
         other: "Altri cookie",
         otherDesc: "Cookie non categorizzati",
-        save: "Salva preferenze"
+        save: "Salva preferenze",
+        language: "Italiano"
     },
     pt: {
         title: "Valorizamos sua privacidade",
@@ -181,7 +185,8 @@ const translations = {
         advertisingDesc: "Exibem anúncios relevantes",
         other: "Outros Cookies",
         otherDesc: "Cookies não categorizados",
-        save: "Salvar Preferências"
+        save: "Salvar Preferências",
+        language: "Português"
     },
     ru: {
         title: "Мы ценим вашу конфиденциальность",
@@ -200,7 +205,8 @@ const translations = {
         advertisingDesc: "Показывают релевантную рекламу",
         other: "Другие файлы cookie",
         otherDesc: "Неклассифицированные файлы cookie",
-        save: "Сохранить настройки"
+        save: "Сохранить настройки",
+        language: "Русский"
     },
     ja: {
         title: "プライバシーを尊重します",
@@ -219,7 +225,8 @@ const translations = {
         advertisingDesc: "関連性の高い広告を表示",
         other: "その他のクッキー",
         otherDesc: "未分類のクッキー",
-        save: "設定を保存"
+        save: "設定を保存",
+        language: "日本語"
     },
     zh: {
         title: "我们重视您的隐私",
@@ -238,12 +245,13 @@ const translations = {
         advertisingDesc: "提供相关广告",
         other: "其他Cookies",
         otherDesc: "未分类的cookies",
-        save: "保存偏好"
+        save: "保存偏好",
+        language: "中文"
     }
 };
 
-// Main initialization with enhanced cookie scanning
-document.addEventListener('DOMContentLoaded', function() {
+// Language detection and auto-translation functionality
+function detectUserLanguage() {
     // First try to get language from dataLayer (from IP detection)
     let detectedLanguage = 'en';
     if (window.dataLayer && window.dataLayer.length > 0) {
@@ -269,6 +277,68 @@ document.addEventListener('DOMContentLoaded', function() {
         detectedLanguage = translations[browserLang] ? browserLang : 'en';
     }
     
+    return detectedLanguage;
+}
+
+// Function to change language dynamically
+function changeLanguage(languageCode) {
+    const lang = translations[languageCode] || translations.en;
+    
+    // Update banner text
+    const banner = document.getElementById('cookieConsentBanner');
+    if (banner) {
+        banner.querySelector('h2').textContent = lang.title;
+        banner.querySelector('p').textContent = lang.description;
+        banner.querySelector('.privacy-policy-link').textContent = lang.privacy;
+        banner.querySelector('#acceptAllBtn').textContent = lang.accept;
+        banner.querySelector('#adjustConsentBtn').textContent = lang.customize;
+        banner.querySelector('#rejectAllBtn').textContent = lang.reject;
+    }
+    
+    // Update modal text
+    const modal = document.getElementById('cookieSettingsModal');
+    if (modal) {
+        modal.querySelector('h2').textContent = lang.title;
+        
+        // Update category headers and descriptions
+        const categories = {
+            'functional': 'essential',
+            'analytics': 'analytics',
+            'performance': 'performance',
+            'advertising': 'advertising',
+            'uncategorized': 'other'
+        };
+        
+        for (const [category, key] of Object.entries(categories)) {
+            const categoryElement = document.querySelector(`input[data-category="${category}"]`);
+            if (categoryElement) {
+                const container = categoryElement.closest('.cookie-category');
+                container.querySelector('h3').textContent = lang[key];
+                container.querySelector('p').textContent = lang[`${key}Desc`];
+            }
+        }
+        
+        // Update buttons
+        modal.querySelector('#rejectAllSettingsBtn').textContent = lang.reject;
+        modal.querySelector('#saveSettingsBtn').textContent = lang.save;
+        modal.querySelector('#acceptAllSettingsBtn').textContent = lang.accept;
+    }
+    
+    // Update floating button title
+    const floatingButton = document.getElementById('cookieFloatingButton');
+    if (floatingButton) {
+        floatingButton.title = lang.title;
+    }
+    
+    // Store selected language in cookie
+    setCookie('preferred_language', languageCode, 365);
+}
+
+// Main initialization with enhanced cookie scanning
+document.addEventListener('DOMContentLoaded', function() {
+    const detectedLanguage = detectUserLanguage();
+    const preferredLanguage = getCookie('preferred_language') || detectedLanguage;
+    
     const detectedCookies = scanAndCategorizeCookies();
     if (detectedCookies.uncategorized.length > 0) {
         console.log('Uncategorized cookies found:', detectedCookies.uncategorized);
@@ -282,8 +352,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    injectConsentHTML(detectedCookies, detectedLanguage);
-    initializeCookieConsent(detectedCookies, detectedLanguage);
+    injectConsentHTML(detectedCookies, preferredLanguage);
+    initializeCookieConsent(detectedCookies, preferredLanguage);
     
     if (getCookie('cookie_consent')) {
         showFloatingButton();
@@ -455,20 +525,30 @@ function injectConsentHTML(detectedCookies, language = 'en') {
         </div>`;
     };
     
+    // Generate language selector dropdown
+    const languageSelector = `
+    <div class="language-selector">
+        <select id="cookieLanguageSelect">
+            ${Object.entries(translations).map(([code, translation]) => `
+                <option value="${code}" ${code === language ? 'selected' : ''}>${translation.language}</option>
+            `).join('')}
+        </select>
+    </div>`;
+    
     const html = `
     <!-- Main Consent Banner -->
     <div id="cookieConsentBanner" class="cookie-consent-banner">
         <div class="cookie-consent-container">
+            ${languageSelector}
             <div class="cookie-consent-content">
                 <h2>${lang.title}</h2>
                 <p>${lang.description}</p>
                 <a href="/privacy-policy/" class="privacy-policy-link">${lang.privacy}</a>
             </div>
             <div class="cookie-consent-buttons">
-             <button id="acceptAllBtn" class="cookie-btn accept-btn">${lang.accept}</button>
+                <button id="acceptAllBtn" class="cookie-btn accept-btn">${lang.accept}</button>
                 <button id="adjustConsentBtn" class="cookie-btn adjust-btn">${lang.customize}</button>
                 <button id="rejectAllBtn" class="cookie-btn reject-btn">${lang.reject}</button>
-               
             </div>
         </div>
     </div>
@@ -613,6 +693,35 @@ function injectConsentHTML(detectedCookies, language = 'en') {
         background-color: #27ae60;
         transform: translateY(-1px);
         box-shadow: 0 4px 16px rgba(46, 204, 113, 0.4);
+    }
+
+    /* Language Selector Styles */
+    .language-selector {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+    }
+
+    .language-selector select {
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+        background-color: #f8f9fa;
+        font-size: 13px;
+        color: #333;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .language-selector select:hover {
+        border-color: #3498db;
+        background-color: #fff;
+    }
+
+    .language-selector select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
     }
 
     /* Settings Modal - Updated to 845x470 dimensions */
@@ -1071,6 +1180,14 @@ function initializeCookieConsent(detectedCookies, language) {
             }
         });
     });
+    
+    // Setup language selector change event
+    const languageSelect = document.getElementById('cookieLanguageSelect');
+    if (languageSelect) {
+        languageSelect.addEventListener('change', function() {
+            changeLanguage(this.value);
+        });
+    }
 }
 
 function setupEventListeners() {
@@ -1503,4 +1620,3 @@ function getCookie(name) {
         return continentMap[countryCode] || "Unknown";
     }
 })();
-
