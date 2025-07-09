@@ -2312,45 +2312,19 @@ function initializeAutoBlock() {
 
     // Block cookies before consent
     if (config.autoblock.essentialOnly) {
-        // Enhanced cookie blocking - intercept cookie setting
-        const originalSetCookie = document.__lookupSetter__('cookie');
-        document.__defineSetter__('cookie', function(cookie) {
-            if (typeof cookie === 'string') {
-                const [name] = cookie.split('=');
-                if (name && !isEssentialCookie(name)) {
-                    return; // Block non-essential cookies
-                }
-            }
-            originalSetCookie.call(document, cookie);
-        });
-        
-        // Also block cookies that are already set
         const cookies = document.cookie.split(';');
         cookies.forEach(cookie => {
             const [name] = cookie.trim().split('=');
             if (name && !isEssentialCookie(name)) {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             }
         });
     }
 
     // Block scripts if enabled
     if (config.autoblock.blockAllScripts) {
-        // Enhanced script blocking
-        const originalCreateElement = document.createElement;
-        document.createElement = function(tagName) {
-            if (tagName.toLowerCase() === 'script') {
-                const script = originalCreateElement.call(document, tagName);
-                script.type = 'text/plain'; // Block by default
-                script.setAttribute('data-cookieconsent', 'pending');
-                return script;
-            }
-            return originalCreateElement.call(document, tagName);
-        };
-        
-        // Also block existing scripts
-        document.querySelectorAll('script:not([data-essential])').forEach(script => {
-            if (!script.hasAttribute('data-cookieconsent')) {
+        document.querySelectorAll('script[type="text/plain"], script:not([type])').forEach(script => {
+            if (!script.hasAttribute('data-essential')) {
                 script.type = 'text/plain';
                 script.setAttribute('data-cookieconsent', 'pending');
             }
