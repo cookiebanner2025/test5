@@ -65,9 +65,23 @@ const config = {
     
     // Privacy policy URL (configurable)
     privacyPolicyUrl: 'https://yourdomain.com/privacy-policy', // Add your full privacy policy URL here
+  
+
+  
+    // Add these new settings:
+    autoblock: {
+        enabled: true,  // Set to false to disable autoblocking
+        essentialOnly: true, // Only allow essential cookies before consent
+        blockAllScripts: false, // Set to true to block all non-essential scripts
+    },
+    
+    autoDiscover: {
+        enabled: true, // Set to false to disable auto cookie discovery
+        rescanInterval: 3600, // Rescan cookies every hour (in seconds)
+    },
 
 
-   
+  
     // Query Parameter Storage Configuration
     queryParamsConfig: {
         enabled: true, // Enable/disable query parameter storage
@@ -3553,6 +3567,100 @@ function injectConsentHTML(detectedCookies, language = 'en') {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
+
+
+
+
+
+
+
+
+
+
+// Auto-blocking functionality
+function initializeAutoBlock() {
+    if (!config.autoblock.enabled) return;
+
+    // Block cookies before consent
+    if (config.autoblock.essentialOnly) {
+        const cookies = document.cookie.split(';');
+        cookies.forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            if (name && !isEssentialCookie(name)) {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+            }
+        });
+    }
+
+    // Block scripts if enabled
+    if (config.autoblock.blockAllScripts) {
+        document.querySelectorAll('script[type="text/plain"], script:not([type])').forEach(script => {
+            if (!script.hasAttribute('data-essential')) {
+                script.type = 'text/plain';
+                script.setAttribute('data-cookieconsent', 'pending');
+            }
+        });
+    }
+}
+
+function isEssentialCookie(name) {
+    for (const pattern in cookieDatabase) {
+        if (name.startsWith(pattern) {
+            return cookieDatabase[pattern].category === 'functional';
+        }
+    }
+    return false;
+}
+
+// Auto-discover functionality
+function initializeAutoDiscover() {
+    if (!config.autoDiscover.enabled) return;
+
+    // Initial scan
+    scanAndUpdateCookies();
+
+    // Periodic rescan
+    if (config.autoDiscover.rescanInterval > 0) {
+        setInterval(scanAndUpdateCookies, config.autoDiscover.rescanInterval * 1000);
+    }
+}
+
+function scanAndUpdateCookies() {
+    const detectedCookies = scanAndCategorizeCookies();
+    updateCookieTables(detectedCookies);
+}
+
+function updateCookieTables(detectedCookies) {
+    const categories = ['functional', 'analytics', 'performance', 'advertising', 'uncategorized'];
+    
+    categories.forEach(category => {
+        const container = document.querySelector(`input[data-category="${category}"]`);
+        if (container) {
+            const tableContainer = container.closest('.cookie-category').querySelector('.main-cookie-details-content');
+            if (tableContainer) {
+                tableContainer.innerHTML = detectedCookies[category].length > 0 ? 
+                    generateCookieTable(detectedCookies[category]) : 
+                    `<p class="no-cookies-message">No cookies in this category detected.</p>`;
+            }
+        }
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Check if banner should be shown based on schedule
 function shouldShowBanner() {
     if (!config.behavior.bannerSchedule.enabled) {
@@ -3621,6 +3729,12 @@ function shouldShowBanner() {
 
 // Main initialization function
 function initializeCookieConsent(detectedCookies, language) {
+  // Initialize auto-blocking
+    initializeAutoBlock();
+    
+    // Initialize auto-discover
+    initializeAutoDiscover();
+  
     const consentGiven = getCookie('cookie_consent');
     
     // Check if banner should be shown based on geo-targeting and schedule
@@ -4120,12 +4234,35 @@ function clearCategoryCookies(category) {
 }
 
 function loadCookiesAccordingToConsent(consentData) {
-   if (consentData.categories.advertising) {
+    if (consentData.categories.advertising) {
         loadAdvertisingCookies();
+        // Unblock advertising scripts if autoblock is enabled
+        if (config.autoblock.enabled && config.autoblock.blockAllScripts) {
+            document.querySelectorAll('script[data-cookieconsent="pending"').forEach(script => {
+                if (script.getAttribute('data-category') === 'advertising') {
+                    script.type = 'text/javascript';
+                    script.removeAttribute('data-cookieconsent');
+                }
+            });
+        }
     }
     
     if (consentData.categories.performance) {
         loadPerformanceCookies();
+        // Unblock performance scripts if autoblock is enabled
+        if (config.autoblock.enabled && config.autoblock.blockAllScripts) {
+            document.querySelectorAll('script[data-cookieconsent="pending"').forEach(script => {
+                if (script.getAttribute('data-category') === 'performance') {
+                    script.type = 'text/javascript';
+                    script.removeAttribute('data-cookieconsent');
+                }
+            });
+        }
+    }
+    
+    // Rescan cookies after loading to update the tables
+    if (config.autoDiscover.enabled) {
+        setTimeout(scanAndUpdateCookies, 1000);
     }
 }
 
