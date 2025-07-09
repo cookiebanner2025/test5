@@ -70,7 +70,7 @@ const config = {
     autoblock: {
         enabled: true,  // Set to false to disable autoblocking
         essentialOnly: true, // Only allow essential cookies before consent
-        blockAllScripts: true, // Set to true to block all non-essential scripts
+        blockAllScripts: false, // Set to true to block all non-essential scripts
     },
     
     autoDiscover: {
