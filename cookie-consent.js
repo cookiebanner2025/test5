@@ -2349,38 +2349,6 @@ function initializeAutoBlock() {
     }
 }
 
-
-
-
-// Add this new function to block cookies before they're set
-function setupCookieMonitoring() {
-    // Override document.cookie setter to block non-essential cookies
-    const originalCookieSetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set;
-    
-    Object.defineProperty(document, 'cookie', {
-        set: function(value) {
-            if (config.autoblock.enabled && config.autoblock.essentialOnly) {
-                const name = value.split('=')[0].trim();
-                if (name && !isEssentialCookie(name)) {
-                    console.log('Blocking non-essential cookie:', name);
-                    return; // Prevent setting the cookie
-                }
-            }
-            return originalCookieSetter.call(document, value);
-        },
-        get: function() {
-            return originalCookieSetter.get.call(document);
-        },
-        configurable: true
-    });
-}
-
-
-
-
-
-
-
 function updateCookieTables(detectedCookies) {
     const categories = ['functional', 'analytics', 'performance', 'advertising', 'uncategorized'];
     
@@ -4246,6 +4214,34 @@ function saveCustomSettings() {
     }
 }
 // Helper functions
+
+// Add this new function here:
+function setupCookieMonitoring() {
+    // Override document.cookie setter to block non-essential cookies
+    const originalCookieSetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set;
+    
+    Object.defineProperty(document, 'cookie', {
+        set: function(value) {
+            if (config.autoblock.enabled && config.autoblock.essentialOnly) {
+                const name = value.split('=')[0].trim();
+                if (name && !isEssentialCookie(name)) {
+                    console.log('Blocking non-essential cookie:', name);
+                    return; // Prevent setting the cookie
+                }
+            }
+            return originalCookieSetter.call(document, value);
+        },
+        get: function() {
+            return originalCookieSetter.get.call(document);
+        },
+        configurable: true
+    });
+}
+
+
+
+
+
 function clearNonEssentialCookies() {
     const cookies = document.cookie.split(';');
     cookies.forEach(cookie => {
@@ -4418,7 +4414,7 @@ function loadPerformanceCookies() {
 
 // Main execution flow
 document.addEventListener('DOMContentLoaded', async function() {
-   // Add this line right at the start
+  // Add this line FIRST:
     setupCookieMonitoring();
     // Ensure location data is loaded first
     try {
@@ -4526,3 +4522,4 @@ if (typeof window !== 'undefined') {
         config: config
     };
 }
+
