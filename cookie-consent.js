@@ -2310,74 +2310,34 @@ function isEssentialCookie(name) {
 
 
 
-
-
-
 function initializeAutoBlock() {
     if (!config.autoblock.enabled) return;
 
-    // Block cookies before consent
+    // First show the banner
+    if (!getCookie('cookie_consent')) {
+        showCookieBanner();
+    }
+
+    // Then initialize blocking
     if (config.autoblock.essentialOnly) {
-        const originalSetCookie = document.__lookupSetter__('cookie');
-        document.__defineSetter__('cookie', function(cookie) {
-            if (typeof cookie === 'string') {
-                const [name] = cookie.split('=');
-                // ALLOW cookies that start with 'cookieConsent' (banner cookies)
-                if (name && !isEssentialCookie(name) && !name.startsWith('cookieConsent')) {
-                    return; // Block non-essential cookies
-                }
-            }
-            originalSetCookie.call(document, cookie);
-        });
-        
-        // Clear existing non-essential cookies (except banner cookies)
         const cookies = document.cookie.split(';');
         cookies.forEach(cookie => {
             const [name] = cookie.trim().split('=');
             if (name && !isEssentialCookie(name) && !name.startsWith('cookieConsent')) {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             }
         });
     }
 
-    // Block scripts if enabled
     if (config.autoblock.blockAllScripts) {
-        const originalCreateElement = document.createElement;
-        document.createElement = function(tagName, options) {
-            const element = originalCreateElement.call(document, tagName, options);
-            
-            // Skip blocking for scripts with data-essential attribute
-            if (tagName.toLowerCase() === 'script') {
-                // ALLOW scripts that contain 'cookieConsent' in their src
-                if (options && options.src && options.src.includes('cookieConsent')) {
-                    return element;
-                }
-                element.type = 'text/plain';
-                element.setAttribute('data-cookieconsent', 'pending');
-            }
-            return element;
-        };
-        
-        // Block existing scripts (except the consent script)
-        document.querySelectorAll('script:not([data-essential])').forEach(script => {
-            if (!script.hasAttribute('data-cookieconsent') && 
-                !script.src.includes('cookieConsent')) {
+        document.querySelectorAll('script:not([data-essential]):not([src*="cookieConsent"])').forEach(script => {
+            if (!script.hasAttribute('data-cookieconsent')) {
                 script.type = 'text/plain';
                 script.setAttribute('data-cookieconsent', 'pending');
             }
         });
     }
 }
-
-
-
-
-// Initialize the banner after auto-block
-setTimeout(() => {
-    if (!getCookie('cookie_consent')) {
-        showCookieBanner();
-    }
-}, 100);
 
 
 
