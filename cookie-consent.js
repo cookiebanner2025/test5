@@ -2299,10 +2299,9 @@ function getCookieDuration(name) {
 
 // NEW AUTO-BLOCK AND AUTO-DISCOVER FUNCTIONS (add these)
 function isEssentialCookie(name) {
-    // Essential cookies are only those explicitly marked as 'essential' in the database
     for (const pattern in cookieDatabase) {
-        if (name.startsWith(pattern) {
-            return cookieDatabase[pattern].category === 'essential'; // Changed from 'functional'
+        if (name.startsWith(pattern)) {
+            return cookieDatabase[pattern].category === 'functional';
         }
     }
     return false;
@@ -2311,39 +2310,49 @@ function isEssentialCookie(name) {
 function initializeAutoBlock() {
     if (!config.autoblock.enabled) return;
 
-    // Block all non-essential cookies immediately
+    // Block cookies before consent
     if (config.autoblock.essentialOnly) {
-        // Get all cookies
-        const cookies = document.cookie.split(';');
+        // Enhanced cookie blocking - intercept cookie setting
+        const originalSetCookie = document.__lookupSetter__('cookie');
+        document.__defineSetter__('cookie', function(cookie) {
+            if (typeof cookie === 'string') {
+                const [name] = cookie.split('=');
+                if (name && !isEssentialCookie(name)) {
+                    return; // Block non-essential cookies
+                }
+            }
+            originalSetCookie.call(document, cookie);
+        });
         
-        // Block all non-essential cookies
+        // Also block cookies that are already set
+        const cookies = document.cookie.split(';');
         cookies.forEach(cookie => {
             const [name] = cookie.trim().split('=');
             if (name && !isEssentialCookie(name)) {
-                // Clear the cookie for all possible paths and domains
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
                 document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
             }
         });
     }
 
-    // Block all non-essential scripts if enabled
+    // Block scripts if enabled
     if (config.autoblock.blockAllScripts) {
+        // Enhanced script blocking
+        const originalCreateElement = document.createElement;
+        document.createElement = function(tagName) {
+            if (tagName.toLowerCase() === 'script') {
+                const script = originalCreateElement.call(document, tagName);
+                script.type = 'text/plain'; // Block by default
+                script.setAttribute('data-cookieconsent', 'pending');
+                return script;
+            }
+            return originalCreateElement.call(document, tagName);
+        };
+        
+        // Also block existing scripts
         document.querySelectorAll('script:not([data-essential])').forEach(script => {
-            // Skip scripts that are already blocked or essential
-            if (script.type !== 'text/plain' && !script.hasAttribute('data-essential')) {
-                // Store original src/code for later restoration
-                const src = script.src;
-                const content = script.innerHTML;
-                
-                // Block the script
+            if (!script.hasAttribute('data-cookieconsent')) {
                 script.type = 'text/plain';
                 script.setAttribute('data-cookieconsent', 'pending');
-                if (src) script.setAttribute('data-original-src', src);
-                if (content) script.setAttribute('data-original-content', content);
-                script.removeAttribute('src');
-                script.innerHTML = '';
             }
         });
     }
@@ -4214,34 +4223,6 @@ function saveCustomSettings() {
     }
 }
 // Helper functions
-
-// Add this new function here:
-function setupCookieMonitoring() {
-    // Override document.cookie setter to block non-essential cookies
-    const originalCookieSetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set;
-    
-    Object.defineProperty(document, 'cookie', {
-        set: function(value) {
-            if (config.autoblock.enabled && config.autoblock.essentialOnly) {
-                const name = value.split('=')[0].trim();
-                if (name && !isEssentialCookie(name)) {
-                    console.log('Blocking non-essential cookie:', name);
-                    return; // Prevent setting the cookie
-                }
-            }
-            return originalCookieSetter.call(document, value);
-        },
-        get: function() {
-            return originalCookieSetter.get.call(document);
-        },
-        configurable: true
-    });
-}
-
-
-
-
-
 function clearNonEssentialCookies() {
     const cookies = document.cookie.split(';');
     cookies.forEach(cookie => {
@@ -4414,8 +4395,6 @@ function loadPerformanceCookies() {
 
 // Main execution flow
 document.addEventListener('DOMContentLoaded', async function() {
-  // Add this line FIRST:
-    setupCookieMonitoring();
     // Ensure location data is loaded first
     try {
         if (!sessionStorage.getItem('locationData')) {
