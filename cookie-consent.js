@@ -69,8 +69,8 @@ const config = {
     // NEW AUTOBLOCK AND AUTO-DISCOVER SETTINGS (add these)
     autoblock: {
         enabled: true,  // Set to false to disable autoblocking
-        essentialOnly: false, // Only allow essential cookies before consent
-        blockAllScripts: false, // Set to true to block all non-essential scripts
+        essentialOnly: true, // Only allow essential cookies before consent
+        blockAllScripts: true, // Set to true to block all non-essential scripts
     },
     
     autoDiscover: {
