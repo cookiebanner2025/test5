@@ -2299,9 +2299,10 @@ function getCookieDuration(name) {
 
 // NEW AUTO-BLOCK AND AUTO-DISCOVER FUNCTIONS (add these)
 function isEssentialCookie(name) {
+    // Essential cookies are only those explicitly marked as 'essential' in the database
     for (const pattern in cookieDatabase) {
-        if (name.startsWith(pattern)) {
-            return cookieDatabase[pattern].category === 'functional';
+        if (name.startsWith(pattern) {
+            return cookieDatabase[pattern].category === 'essential'; // Changed from 'functional'
         }
     }
     return false;
@@ -2310,27 +2311,75 @@ function isEssentialCookie(name) {
 function initializeAutoBlock() {
     if (!config.autoblock.enabled) return;
 
-    // Block cookies before consent
+    // Block all non-essential cookies immediately
     if (config.autoblock.essentialOnly) {
+        // Get all cookies
         const cookies = document.cookie.split(';');
+        
+        // Block all non-essential cookies
         cookies.forEach(cookie => {
             const [name] = cookie.trim().split('=');
             if (name && !isEssentialCookie(name)) {
+                // Clear the cookie for all possible paths and domains
                 document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
             }
         });
     }
 
-    // Block scripts if enabled
+    // Block all non-essential scripts if enabled
     if (config.autoblock.blockAllScripts) {
-        document.querySelectorAll('script[type="text/plain"], script:not([type])').forEach(script => {
-            if (!script.hasAttribute('data-essential')) {
+        document.querySelectorAll('script:not([data-essential])').forEach(script => {
+            // Skip scripts that are already blocked or essential
+            if (script.type !== 'text/plain' && !script.hasAttribute('data-essential')) {
+                // Store original src/code for later restoration
+                const src = script.src;
+                const content = script.innerHTML;
+                
+                // Block the script
                 script.type = 'text/plain';
                 script.setAttribute('data-cookieconsent', 'pending');
+                if (src) script.setAttribute('data-original-src', src);
+                if (content) script.setAttribute('data-original-content', content);
+                script.removeAttribute('src');
+                script.innerHTML = '';
             }
         });
     }
 }
+
+
+
+
+// Add this new function to block cookies before they're set
+function setupCookieMonitoring() {
+    // Override document.cookie setter to block non-essential cookies
+    const originalCookieSetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set;
+    
+    Object.defineProperty(document, 'cookie', {
+        set: function(value) {
+            if (config.autoblock.enabled && config.autoblock.essentialOnly) {
+                const name = value.split('=')[0].trim();
+                if (name && !isEssentialCookie(name)) {
+                    console.log('Blocking non-essential cookie:', name);
+                    return; // Prevent setting the cookie
+                }
+            }
+            return originalCookieSetter.call(document, value);
+        },
+        get: function() {
+            return originalCookieSetter.get.call(document);
+        },
+        configurable: true
+    });
+}
+
+
+
+
+
+
 
 function updateCookieTables(detectedCookies) {
     const categories = ['functional', 'analytics', 'performance', 'advertising', 'uncategorized'];
@@ -4369,6 +4418,8 @@ function loadPerformanceCookies() {
 
 // Main execution flow
 document.addEventListener('DOMContentLoaded', async function() {
+   // Add this line right at the start
+    setupCookieMonitoring();
     // Ensure location data is loaded first
     try {
         if (!sessionStorage.getItem('locationData')) {
