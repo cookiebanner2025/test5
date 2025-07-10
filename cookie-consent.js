@@ -1,10 +1,60 @@
+
+
+
 /**
 you can change the cookie category description text by this class. like you can change the essential cookies description text size.
   .broadcookiedes {
       font-size: 15px;
     } 
  */
+// ===== STRICT COOKIE BLOCKER =====
+// Override document.cookie to block all non-essential cookies by default
+const originalCookieSetter = document.__lookupSetter__('cookie');
+const originalCookieGetter = document.__lookupGetter__('cookie');
 
+Object.defineProperty(document, 'cookie', {
+  get: function() {
+    return originalCookieGetter.call(document);
+  },
+  set: function(value) {
+    // Check if this is an essential cookie
+    const cookieName = value.split('=')[0].trim();
+    let isEssential = false;
+    
+    // Check against essential cookie patterns
+    const essentialPatterns = [
+      /^cookie_consent/,
+      /^essential_/,
+      /^necessary_/,
+      /^PHPSESSID/,
+      /^wordpress_/,
+      /^wp-/,
+      /^AWSALB/,
+      /^ARRAffinity/,
+      /^JSESSIONID/,
+      /^__cfduid/,
+      /^__cf_bm/
+    ];
+    
+    for (const pattern of essentialPatterns) {
+      if (pattern.test(cookieName)) {
+        isEssential = true;
+        break;
+      }
+    }
+    
+    // Only allow the cookie if it's essential
+    if (isEssential) {
+      return originalCookieSetter.call(document, value);
+    }
+    
+    // Block all other cookies
+    console.log('Blocked non-essential cookie:', cookieName);
+    return false;
+  },
+  configurable: true
+});
+// ===== END COOKIE BLOCKER =====
 const EU_COUNTRIES = [
   "AL", // Albania
   "AD", // Andorra
@@ -66,14 +116,11 @@ const config = {
       // Privacy policy URL (configurable)
     privacyPolicyUrl: 'https://yourdomain.com/privacy-policy', // Add your full privacy policy URL here
 
-   // Enhanced autoblock settings
+    // NEW AUTOBLOCK AND AUTO-DISCOVER SETTINGS (add these)
     autoblock: {
-        enabled: true,
-        essentialOnly: true,
-        blockAllScripts: true,
-        aggressiveMode: true, // NEW: More aggressive blocking
-        blockThirdParty: true, // NEW: Block third-party cookies
-        blockFingerprinting: true // NEW: Block fingerprinting attempts
+        enabled: true,  // Set to false to disable autoblocking
+        essentialOnly: true, // Only allow essential cookies before consent
+        blockAllScripts: true, // Set to true to block all non-essential scripts
     },
     
     autoDiscover: {
@@ -2316,97 +2363,31 @@ function isEssentialCookie(name) {
 function initializeAutoBlock() {
     if (!config.autoblock.enabled) return;
 
-    // First clear existing non-essential cookies
+    // First show the banner
+    if (!getCookie('cookie_consent')) {
+        showCookieBanner();
+    }
+
+    // Then initialize blocking
     if (config.autoblock.essentialOnly) {
-        clearNonEssentialCookies();
-    }
-
-    // Block third-party cookies if enabled
-    if (config.autoblock.blockThirdParty) {
-        blockThirdPartyCookies();
-    }
-
-    // Block all non-essential scripts
-    if (config.autoblock.blockAllScripts) {
-        blockNonEssentialScripts();
-    }
-
-    // Block fingerprinting attempts
-    if (config.autoblock.blockFingerprinting) {
-        blockFingerprinting();
-    }
-}
-
-
-
-
-// Add these new blocking functions:
-
-function blockThirdPartyCookies() {
-    // Set cookie attributes to restrict third-party access
-    const hostParts = window.location.hostname.split('.');
-    const domain = hostParts.length > 1 ? 
-        '.' + hostParts.slice(-2).join('.') : 
-        window.location.hostname;
-    
-    // Set restrictive cookie policy
-    document.cookie = `__Host-restrictive=1; Path=/; Secure; SameSite=Strict; Domain=${domain}`;
-}
-
-function blockNonEssentialScripts() {
-    // Block common tracking scripts by URL patterns
-    const blockedPatterns = [
-        'google-analytics.com',
-        'googletagmanager.com',
-        'doubleclick.net',
-        'facebook.net',
-        'bing.com',
-        'ads.microsoft.com',
-        'adservice.google.com',
-        'hotjar.com',
-        'linkedin.com',
-        'twitter.com'
-    ];
-    
-    document.querySelectorAll('script').forEach(script => {
-        if (script.src) {
-            const isBlocked = blockedPatterns.some(pattern => 
-                script.src.includes(pattern)
-            );
-            
-            if (isBlocked && !script.hasAttribute('data-essential')) {
-                script.remove();
+        const cookies = document.cookie.split(';');
+        cookies.forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            if (name && !isEssentialCookie(name) && !name.startsWith('cookieConsent')) {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             }
-        }
-    });
+        });
+    }
+
+    if (config.autoblock.blockAllScripts) {
+        document.querySelectorAll('script:not([data-essential]):not([src*="cookieConsent"])').forEach(script => {
+            if (!script.hasAttribute('data-cookieconsent')) {
+                script.type = 'text/plain';
+                script.setAttribute('data-cookieconsent', 'pending');
+            }
+        });
+    }
 }
-
-function blockFingerprinting() {
-    // Prevent common fingerprinting techniques
-    Object.defineProperty(navigator, 'plugins', {
-        get: () => [],
-        configurable: false
-    });
-    
-    Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en'],
-        configurable: false
-    });
-    
-    Object.defineProperty(navigator, 'deviceMemory', {
-        get: () => 4,
-        configurable: false
-    });
-    
-    Object.defineProperty(screen, 'availWidth', {
-        get: () => 1920,
-        configurable: false
-    });
-}
-
-
-
-
 
 
 
@@ -4278,46 +4259,22 @@ function saveCustomSettings() {
 // Helper functions
 function clearNonEssentialCookies() {
     const cookies = document.cookie.split(';');
-    const hostParts = window.location.hostname.split('.');
-    const domain = hostParts.length > 1 ? 
-        hostParts.slice(-2).join('.') : 
-        window.location.hostname;
-    
     cookies.forEach(cookie => {
         const [nameValue] = cookie.trim().split('=');
         const name = nameValue.trim();
         let isEssential = false;
         
-        // Check against essential cookies
         for (const pattern in cookieDatabase) {
-            if (name.startsWith(pattern) {
-                isEssential = cookieDatabase[pattern].category === 'functional';
+            if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'functional') {
+                isEssential = true;
                 break;
             }
         }
         
         if (!isEssential && name && name !== 'cookie_consent') {
-            // Clear cookie from all possible paths and domains
             document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
-            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${window.location.hostname}`;
-            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.${domain}`;
         }
     });
-    
-    // Clear localStorage and sessionStorage for tracking data
-    if (config.autoblock.aggressiveMode) {
-        Object.keys(localStorage).forEach(key => {
-            if (key.match(/_ga|_gid|_gat|_uetsid|_fbp|_fbc|li_fat_id/i)) {
-                localStorage.removeItem(key);
-            }
-        });
-        
-        Object.keys(sessionStorage).forEach(key => {
-            if (key.match(/_ga|_gid|_gat|_uetsid|_fbp|_fbc|li_fat_id/i)) {
-                sessionStorage.removeItem(key);
-            }
-        });
-    }
 }
 
 function clearCategoryCookies(category) {
