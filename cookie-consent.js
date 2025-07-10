@@ -7,54 +7,30 @@ you can change the cookie category description text by this class. like you can 
       font-size: 15px;
     } 
  */
-// ===== STRICT COOKIE BLOCKER =====
-// Override document.cookie to block all non-essential cookies by default
-const originalCookieSetter = document.__lookupSetter__('cookie');
-const originalCookieGetter = document.__lookupGetter__('cookie');
-
-Object.defineProperty(document, 'cookie', {
-  get: function() {
-    return originalCookieGetter.call(document);
-  },
-  set: function(value) {
-    // Check if this is an essential cookie
-    const cookieName = value.split('=')[0].trim();
-    let isEssential = false;
-    
-    // Check against essential cookie patterns
-    const essentialPatterns = [
-      /^cookie_consent/,
-      /^essential_/,
-      /^necessary_/,
-      /^PHPSESSID/,
-      /^wordpress_/,
-      /^wp-/,
-      /^AWSALB/,
-      /^ARRAffinity/,
-      /^JSESSIONID/,
-      /^__cfduid/,
-      /^__cf_bm/
-    ];
-    
-    for (const pattern of essentialPatterns) {
-      if (pattern.test(cookieName)) {
-        isEssential = true;
-        break;
-      }
-    }
-    
-    // Only allow the cookie if it's essential
-    if (isEssential) {
-      return originalCookieSetter.call(document, value);
-    }
-    
-    // Block all other cookies
-    console.log('Blocked non-essential cookie:', cookieName);
-    return false;
-  },
-  configurable: true
-});
-// ===== END COOKIE BLOCKER =====
+(function() {
+    // Block all cookies by default
+    Object.defineProperty(document, 'cookie', {
+        get: function() { return ''; },
+        set: function(value) {
+            // Only allow cookies that are explicitly marked as essential
+            if (typeof value === 'string' && (
+                value.includes('cookie_consent') || 
+                value.includes('essential') ||
+                value.includes('necessary') ||
+                value.includes('wordpress_test_cookie') ||
+                value.includes('PHPSESSID')
+            )) {
+                // Allow the cookie to be set
+                this._cookie = value;
+                return;
+            }
+            // Block all other cookies
+            console.log('Blocked cookie:', value.split(';')[0].split('=')[0]);
+            return false;
+        },
+        configurable: true
+    });
+})();
 const EU_COUNTRIES = [
   "AL", // Albania
   "AD", // Andorra
