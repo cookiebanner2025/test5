@@ -3969,6 +3969,8 @@ function hideFloatingButton() {
 
 // Cookie consent functions
 function acceptAllCookies() {
+     // Restore normal cookie behavior
+    delete document.cookie;
     const consentData = {
         status: 'accepted',
         gcs: 'G111', // Explicit GCS signal for all granted
@@ -4297,6 +4299,39 @@ function loadPerformanceCookies() {
     console.log('Loading performance cookies');
     // This would typically load performance optimization scripts
 }
+
+// Block 3rd party cookies until consent is given
+function blockThirdPartyCookies() {
+    // Only block if consent hasn't been given yet
+    if (!getCookie('cookie_consent')) {
+        // Override document.cookie to intercept cookie setting
+        const originalCookie = document.__lookupSetter__('cookie');
+        
+        Object.defineProperty(document, 'cookie', {
+            set: function(cookie) {
+                // Allow first-party cookies (from current domain)
+                if (cookie.includes(`domain=${window.location.hostname}`) || 
+                    !cookie.includes('domain=')) {
+                    originalCookie.call(document, cookie);
+                }
+                // Block all other cookies (3rd party)
+                else {
+                    console.log('Blocked 3rd party cookie:', cookie.split(';')[0]);
+                }
+            },
+            get: function() {
+                return originalCookie.call(document);
+            }
+        });
+    }
+}
+
+// Call this function immediately when the script loads
+blockThirdPartyCookies();
+
+
+
+
 
 // Main execution flow
 document.addEventListener('DOMContentLoaded', async function() {
