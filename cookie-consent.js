@@ -1,14 +1,7 @@
-/**
-you can change the cookie category description text by this class. like you can change the essential cookies description text size.
-  .broadcookiedes {
-      font-size: 15px;
-    } 
- */
-
 // Block all non-essential cookies until consent is given
 (function() {
     // Check if consent has been given
-    const consentGiven = document.cookie.includes('cookie_consent');
+    const consentGiven = document.cookie.includes('cookie_consent=');
     
     // Only proceed if consent hasn't been given yet
     if (!consentGiven) {
@@ -21,7 +14,16 @@ you can change the cookie category description text by this class. like you can 
                 const cookieName = cookie.split('=')[0].trim();
                 let isEssential = false;
                 
-                // Check if this is an essential cookie
+                // Always allow these special cookies needed for the banner
+                const allowedCookies = [
+                    'cookie_consent',
+                    'preferred_language',
+                    'dashboard_auth',
+                    'first_visit_date',
+                    'session_start_time'
+                ];
+                
+                // Check if this is an essential or allowed cookie
                 for (const pattern in cookieDatabase) {
                     if (cookieName.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
                         isEssential = true;
@@ -29,11 +31,12 @@ you can change the cookie category description text by this class. like you can 
                     }
                 }
                 
-                // Allow essential cookies, block others
-                if (isEssential || cookieName === 'cookie_consent') {
-                    originalSetCookie.call(document, cookie);
+                // Allow essential cookies and banner operation cookies
+                if (isEssential || allowedCookies.includes(cookieName)) {
+                    return originalSetCookie.call(document, cookie);
                 } else {
                     console.log('Blocked 3rd party cookie:', cookieName);
+                    return;
                 }
             },
             get: function() {
@@ -43,7 +46,7 @@ you can change the cookie category description text by this class. like you can 
         
         // Restore original behavior once consent is given
         const observer = new MutationObserver(function() {
-            if (document.cookie.includes('cookie_consent')) {
+            if (document.cookie.includes('cookie_consent=')) {
                 Object.defineProperty(document, 'cookie', {
                     set: originalSetCookie,
                     get: originalSetCookie
