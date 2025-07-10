@@ -4242,14 +4242,21 @@ function loadPerformanceCookies() {
 function blockThirdPartyCookies() {
     // Only block if consent hasn't been given yet
     if (!getCookie('cookie_consent')) {
-        // Override document.cookie to intercept cookie setting
+        // Save original cookie setter
         const originalCookie = document.__lookupSetter__('cookie');
         
         Object.defineProperty(document, 'cookie', {
             set: function(cookie) {
-                // Allow first-party cookies (from current domain)
+                // Always allow cookies that:
+                // 1. Are from our domain OR
+                // 2. Don't specify a domain OR
+                // 3. Are for the cookie consent banner
                 if (cookie.includes(`domain=${window.location.hostname}`) || 
-                    !cookie.includes('domain=')) {
+                    !cookie.includes('domain=') ||
+                    cookie.startsWith('cookie_consent=') ||
+                    cookie.startsWith('first_visit_date=') ||
+                    cookie.startsWith('dashboard_auth=') ||
+                    cookie.startsWith('preferred_language=')) {
                     originalCookie.call(document, cookie);
                 }
                 // Block all other cookies (3rd party)
@@ -4263,9 +4270,6 @@ function blockThirdPartyCookies() {
         });
     }
 }
-
-// Call this function immediately when the script loads
-blockThirdPartyCookies();
 
 
 
