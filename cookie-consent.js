@@ -5,6 +5,62 @@ you can change the cookie category description text by this class. like you can 
     } 
  */
 
+// Block all non-essential cookies until consent is given
+(function() {
+    // Check if consent has been given
+    const consentGiven = document.cookie.includes('cookie_consent');
+    
+    // Only proceed if consent hasn't been given yet
+    if (!consentGiven) {
+        // Override the default cookie setter
+        const originalSetCookie = document.__lookupSetter__('cookie');
+        
+        Object.defineProperty(document, 'cookie', {
+            set: function(cookie) {
+                // Extract cookie name
+                const cookieName = cookie.split('=')[0].trim();
+                let isEssential = false;
+                
+                // Check if this is an essential cookie
+                for (const pattern in cookieDatabase) {
+                    if (cookieName.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
+                        isEssential = true;
+                        break;
+                    }
+                }
+                
+                // Allow essential cookies, block others
+                if (isEssential || cookieName === 'cookie_consent') {
+                    originalSetCookie.call(document, cookie);
+                } else {
+                    console.log('Blocked 3rd party cookie:', cookieName);
+                }
+            },
+            get: function() {
+                return originalSetCookie.call(document);
+            }
+        });
+        
+        // Restore original behavior once consent is given
+        const observer = new MutationObserver(function() {
+            if (document.cookie.includes('cookie_consent')) {
+                Object.defineProperty(document, 'cookie', {
+                    set: originalSetCookie,
+                    get: originalSetCookie
+                });
+                observer.disconnect();
+            }
+        });
+        
+        observer.observe(document, {
+            subtree: true,
+            characterData: true
+        });
+    }
+})();
+
+
+
 const EU_COUNTRIES = [
   "AL", // Albania
   "AD", // Andorra
@@ -63,20 +119,10 @@ const config = {
     // Domain restriction
     allowedDomains: [],
     
-      // Privacy policy URL (configurable)
+    // Privacy policy URL (configurable)
     privacyPolicyUrl: 'https://yourdomain.com/privacy-policy', // Add your full privacy policy URL here
 
-    // NEW AUTOBLOCK AND AUTO-DISCOVER SETTINGS (add these)
-    autoblock: {
-        enabled: true,  // Set to false to disable autoblocking
-        essentialOnly: true, // Only allow essential cookies before consent
-        blockAllScripts: false, // Set to true to block all non-essential scripts
-    },
-    
-    autoDiscover: {
-        enabled: true, // Set to false to disable auto cookie discovery
-        rescanInterval: 3600, // Rescan cookies every hour (in seconds)
-    },
+
    
     // Query Parameter Storage Configuration
     queryParamsConfig: {
@@ -2287,95 +2333,6 @@ function getCookieDuration(name) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-// NEW AUTO-BLOCK AND AUTO-DISCOVER FUNCTIONS (add these)
-function isEssentialCookie(name) {
-    for (const pattern in cookieDatabase) {
-        if (name.startsWith(pattern)) {
-            return cookieDatabase[pattern].category === 'functional';
-        }
-    }
-    return false;
-}
-
-function initializeAutoBlock() {
-    if (!config.autoblock.enabled) return;
-
-    // Block cookies before consent
-    if (config.autoblock.essentialOnly) {
-        const cookies = document.cookie.split(';');
-        cookies.forEach(cookie => {
-            const [name] = cookie.trim().split('=');
-            if (name && !isEssentialCookie(name)) {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-            }
-        });
-    }
-
-    // Block scripts if enabled
-    if (config.autoblock.blockAllScripts) {
-        document.querySelectorAll('script[type="text/plain"], script:not([type])').forEach(script => {
-            if (!script.hasAttribute('data-essential')) {
-                script.type = 'text/plain';
-                script.setAttribute('data-cookieconsent', 'pending');
-            }
-        });
-    }
-}
-
-function updateCookieTables(detectedCookies) {
-    const categories = ['functional', 'analytics', 'performance', 'advertising', 'uncategorized'];
-    
-    categories.forEach(category => {
-        const container = document.querySelector(`input[data-category="${category}"]`);
-        if (container) {
-            const tableContainer = container.closest('.cookie-category').querySelector('.main-cookie-details-content');
-            if (tableContainer) {
-                tableContainer.innerHTML = detectedCookies[category].length > 0 ? 
-                    generateCookieTable(detectedCookies[category]) : 
-                    `<p class="no-cookies-message">No cookies in this category detected.</p>`;
-            }
-        }
-    });
-}
-
-function scanAndUpdateCookies() {
-    const detectedCookies = scanAndCategorizeCookies();
-    updateCookieTables(detectedCookies);
-}
-
-function initializeAutoDiscover() {
-    if (!config.autoDiscover.enabled) return;
-
-    // Initial scan
-    scanAndUpdateCookies();
-
-    // Periodic rescan
-    if (config.autoDiscover.rescanInterval > 0) {
-        setInterval(scanAndUpdateCookies, config.autoDiscover.rescanInterval * 1000);
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
 // Function to store query parameters in localStorage
 function storeQueryParams() {
     if (!config.queryParamsConfig.enabled) return;
@@ -3720,12 +3677,6 @@ function shouldShowBanner() {
 
 // Main initialization function
 function initializeCookieConsent(detectedCookies, language) {
-
-   // Initialize auto-blocking
-    initializeAutoBlock();
-    
-    // Initialize auto-discover
-    initializeAutoDiscover();
     const consentGiven = getCookie('cookie_consent');
     
     // Check if banner should be shown based on geo-targeting and schedule
@@ -4225,35 +4176,12 @@ function clearCategoryCookies(category) {
 }
 
 function loadCookiesAccordingToConsent(consentData) {
-    if (consentData.categories.advertising) {
+   if (consentData.categories.advertising) {
         loadAdvertisingCookies();
-        // Unblock advertising scripts if autoblock is enabled
-        if (config.autoblock.enabled && config.autoblock.blockAllScripts) {
-            document.querySelectorAll('script[data-cookieconsent="pending"]').forEach(script => {
-                if (script.getAttribute('data-category') === 'advertising') {
-                    script.type = 'text/javascript';
-                    script.removeAttribute('data-cookieconsent');
-                }
-            });
-        }
     }
     
     if (consentData.categories.performance) {
         loadPerformanceCookies();
-        // Unblock performance scripts if autoblock is enabled
-        if (config.autoblock.enabled && config.autoblock.blockAllScripts) {
-            document.querySelectorAll('script[data-cookieconsent="pending"]').forEach(script => {
-                if (script.getAttribute('data-category') === 'performance') {
-                    script.type = 'text/javascript';
-                    script.removeAttribute('data-cookieconsent');
-                }
-            });
-        }
-    }
-    
-    // Rescan cookies after loading to update the tables
-    if (config.autoDiscover.enabled) {
-        setTimeout(scanAndUpdateCookies, 1000);
     }
 }
 
@@ -4475,4 +4403,3 @@ if (typeof window !== 'undefined') {
         config: config
     };
 }
-
