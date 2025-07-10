@@ -4,74 +4,6 @@ you can change the cookie category description text by this class. like you can 
       font-size: 15px;
     } 
  */
-(function() {
-    // Block all cookies by default
-    Object.defineProperty(document, 'cookie', {
-        get: function() { return ''; },
-        set: function() { return false; },
-        configurable: true
-    });
-    
-    // Block all scripts by default
-    const originalCreateElement = document.createElement;
-    document.createElement = function(type) {
-        if (type.toLowerCase() === 'script') {
-            const script = originalCreateElement.call(document, 'script');
-            Object.defineProperty(script, 'src', {
-                set: function() {},
-                get: function() { return ''; },
-                configurable: true
-            });
-            return script;
-        }
-        return originalCreateElement.apply(document, arguments);
-    };
-    
-    // Restore functionality after consent is given
-    window.restoreCookieFunctionality = function() {
-        Object.defineProperty(document, 'cookie', {
-            get: function() { 
-                const cookies = [];
-                const allCookies = document.cookie.split(';');
-                for (let i = 0; i < allCookies.length; i++) {
-                    cookies.push(allCookies[i].trim());
-                }
-                return cookies.join('; ');
-            },
-            set: function(value) {
-                const parts = value.split(';');
-                const nameValue = parts[0].split('=');
-                const name = nameValue[0].trim();
-                const cookieValue = nameValue[1] ? nameValue[1].trim() : '';
-                
-                // Only allow essential cookies if no consent given yet
-                const consentGiven = getCookie('cookie_consent');
-                if (!consentGiven) {
-                    let isEssential = false;
-                    for (const pattern in cookieDatabase) {
-                        if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'functional') {
-                            isEssential = true;
-                            break;
-                        }
-                    }
-                    if (!isEssential) return false;
-                }
-                
-                document.cookie = value;
-                return true;
-            },
-            configurable: true
-        });
-        
-        // Restore original createElement
-        document.createElement = originalCreateElement;
-    };
-})();
-
-
-
-
-
 
 const EU_COUNTRIES = [
   "AL", // Albania
@@ -138,7 +70,7 @@ const config = {
     autoblock: {
         enabled: true,  // Set to false to disable autoblocking
         essentialOnly: true, // Only allow essential cookies before consent
-        blockAllScripts: false, // Set to true to block all non-essential scripts
+        blockAllScripts: true, // Set to true to block all non-essential scripts
     },
     
     autoDiscover: {
@@ -2375,30 +2307,40 @@ function isEssentialCookie(name) {
     return false;
 }
 
+
+
+
 function initializeAutoBlock() {
     if (!config.autoblock.enabled) return;
 
-    // Block cookies before consent
+    // First show the banner
+    if (!getCookie('cookie_consent')) {
+        showCookieBanner();
+    }
+
+    // Then initialize blocking
     if (config.autoblock.essentialOnly) {
         const cookies = document.cookie.split(';');
         cookies.forEach(cookie => {
             const [name] = cookie.trim().split('=');
-            if (name && !isEssentialCookie(name)) {
+            if (name && !isEssentialCookie(name) && !name.startsWith('cookieConsent')) {
                 document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             }
         });
     }
 
-    // Block scripts if enabled
     if (config.autoblock.blockAllScripts) {
-        document.querySelectorAll('script[type="text/plain"], script:not([type])').forEach(script => {
-            if (!script.hasAttribute('data-essential')) {
+        document.querySelectorAll('script:not([data-essential]):not([src*="cookieConsent"])').forEach(script => {
+            if (!script.hasAttribute('data-cookieconsent')) {
                 script.type = 'text/plain';
                 script.setAttribute('data-cookieconsent', 'pending');
             }
         });
     }
 }
+
+
+
 
 function updateCookieTables(detectedCookies) {
     const categories = ['functional', 'analytics', 'performance', 'advertising', 'uncategorized'];
@@ -4083,8 +4025,6 @@ function hideFloatingButton() {
 
 // Cookie consent functions
 function acceptAllCookies() {
-  // Restore normal cookie and script functionality
-    window.restoreCookieFunctionality();
     const consentData = {
         status: 'accepted',
         gcs: 'G111', // Explicit GCS signal for all granted
@@ -4130,8 +4070,6 @@ function acceptAllCookies() {
 }
 
 function rejectAllCookies() {
-    // Only restore functionality for essential cookies
-    window.restoreCookieFunctionality();
     const consentData = {
         status: 'rejected',
         gcs: 'G100', // Explicit GCS signal for all denied
@@ -4174,8 +4112,6 @@ function rejectAllCookies() {
 }
 
 function saveCustomSettings() {
-   // Restore functionality based on consent
-    window.restoreCookieFunctionality();
     const analyticsChecked = document.querySelector('input[data-category="analytics"]').checked;
     const advertisingChecked = document.querySelector('input[data-category="advertising"]').checked;
     
@@ -4549,4 +4485,3 @@ if (typeof window !== 'undefined') {
         config: config
     };
 }
-
