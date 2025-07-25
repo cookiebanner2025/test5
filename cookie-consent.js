@@ -4300,6 +4300,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 // =============================================
 // ENHANCED AUTO-BLOCKING FOR ALL PLATFORMS
 // =============================================
+
+
 // 1. REPLACE YOUR autoBlockCookies() WITH THIS:
 function autoBlockCookies() {
     if (!getCookie('cookie_consent')) {
@@ -4352,6 +4354,59 @@ function unblockAllTracking() {
     // Restore other trackers as needed...
 }
 
+// 3. UPDATE YOUR acceptAllCookies() FUNCTION:
+function acceptAllCookies() {
+    const consentData = {
+        status: 'accepted',
+        categories: {
+            functional: true,
+            analytics: true,
+            performance: true,
+            advertising: true,
+            uncategorized: true
+        },
+        timestamp: new Date().getTime()
+    };
+    
+    setCookie('cookie_consent', JSON.stringify(consentData), 365);
+    unblockAllTracking();
+    updateConsentMode(consentData);
+    
+    // Initialize tracking if scripts are present
+    if (window.dataLayer) {
+        window.dataLayer.push({'event': 'consent_update', 'consent': 'granted'});
+    }
+    
+    if (config.analytics.enabled) {
+        updateConsentStats('accepted');
+    }
+    
+    // Optional: Fire initial page view events
+    fireInitialTrackingEvents();
+}
+
+// Helper function to fire initial tracking
+function fireInitialTrackingEvents() {
+    // Google Analytics
+    if (typeof window.ga === 'function') {
+        window.ga('send', 'pageview');
+    }
+    
+    // Facebook Pixel
+    if (typeof window.fbq === 'function') {
+        window.fbq('track', 'PageView');
+    }
+    
+    // Microsoft Clarity
+    if (typeof window.clarity === 'function') {
+        window.clarity('set', 'consent', 'granted');
+    }
+}
+
+
+
+
+  
 // 3. UPDATE YOUR acceptAllCookies() FUNCTION:
 function acceptAllCookies() {
     const consentData = {
