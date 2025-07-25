@@ -4300,18 +4300,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 // =============================================
 // ENHANCED AUTO-BLOCKING FOR ALL PLATFORMS
 // =============================================
-
+// 1. REPLACE YOUR autoBlockCookies() WITH THIS:
 function autoBlockCookies() {
-    // Only block if no consent has been given
     if (!getCookie('cookie_consent')) {
-        // 1. Delete existing non-essential cookies
+        // Delete existing non-essential cookies
         const cookies = document.cookie.split(';');
         cookies.forEach(cookie => {
             const [nameValue] = cookie.trim().split('=');
             const name = nameValue.trim();
             let isEssential = false;
             
-            // Check if cookie is essential (from your existing cookieDatabase)
             for (const pattern in cookieDatabase) {
                 if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
                     isEssential = true;
@@ -4319,81 +4317,90 @@ function autoBlockCookies() {
                 }
             }
             
-            // Delete non-essential cookies
             if (!isEssential && name && name !== 'cookie_consent') {
                 document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
             }
         });
 
-        // 2. Block ALL tracking scripts globally
+        // Block all tracking scripts
+        window._trackingBlocked = true;
         blockAllTrackingScripts();
-        
-        // 3. Monitor for late-loading scripts
-        document.addEventListener('readystatechange', () => {
-            if (document.readyState === 'complete') {
-                blockAllTrackingScripts();
-            }
-        });
     }
 }
 
-function blockAllTrackingScripts() {
-    // 1. GOOGLE SERVICES
-    window['ga-disable-UA-XXXXX-Y'] = true;
-    window['ga-disable-G-XXXXXX'] = true;
-    window['google_analytics'] = function(){};
-    window['ga'] = window['ga'] || function() { console.log('GA blocked'); };
-    window['gtag'] = function(){ console.log('GTag blocked'); };
-    window['dataLayer'] = window['dataLayer'] || [];
-    window['dataLayer'].push = function(){ console.log('GTM blocked'); };
+// 2. ADD THIS NEW FUNCTION (PLACE AFTER autoBlockCookies):
+function unblockAllTracking() {
+    window._trackingBlocked = false;
     
-    // 2. META/FACEBOOK
-    window['fbq'] = function() { console.log('FB Pixel blocked'); };
+    // Restore Google Analytics
+    if (typeof window.ga === 'function') {
+        window.ga('create', 'UA-XXXXX-Y', 'auto');
+        window.ga('send', 'pageview');
+    }
     
-    // 3. MICROSOFT
-    window['clarity'] = function(){ return { identify:function(){}, set:function(){} }; };
-    window['uetq'] = window['uetq'] || [];
-    window['uetq'].push = function(){ console.log('UET blocked'); };
+    // Restore Facebook Pixel
+    if (typeof window.fbq === 'function') {
+        window.fbq('init', 'YOUR_PIXEL_ID');
+        window.fbq('track', 'PageView');
+    }
     
-    // 4. OTHER MAJOR PLATFORMS
-    window['ttq'] = window['ttq'] || { track: function(){} }; // TikTok
-    window['twq'] = function(){ console.log('Twitter blocked'); };
-    window['_linkedin_data_partner_ids'] = []; // LinkedIn
-    window['lintrk'] = function(){ return { track: function(){} } };
-    window['pintrk'] = window['pintrk'] || function(){}; // Pinterest
-    window['snaptr'] = function(){}; // Snapchat
-    window['rdt'] = function(){}; // Reddit
+    // Restore Microsoft Clarity
+    if (typeof window.clarity === 'function') {
+        window.clarity('identify');
+    }
     
-    // 5. ANALYTICS TOOLS
-    window['hj'] = window['hj'] || function(){}; // Hotjar
-    window['_hjSettings'] = { hjid:0, hjsv:0 };
-    window['CE'] = { init: function(){} }; // Crazy Egg
-    window['optimizely'] = []; // Optimizely
-    
-    // 6. AD NETWORKS
-    window['__adroll'] = window['__adroll'] || [];
-    window['__adroll'].loaded = true;
-    window['amazon_ads'] = { disable: true };
-    
-    console.log('All tracking scripts blocked - awaiting consent');
+    // Restore other trackers as needed...
 }
 
-// =============================================
-// IMPLEMENTATION GUIDE
-// =============================================
+// 3. UPDATE YOUR acceptAllCookies() FUNCTION:
+function acceptAllCookies() {
+    const consentData = {
+        status: 'accepted',
+        categories: {
+            functional: true,
+            analytics: true,
+            performance: true,
+            advertising: true,
+            uncategorized: true
+        },
+        timestamp: new Date().getTime()
+    };
+    
+    setCookie('cookie_consent', JSON.stringify(consentData), 365);
+    unblockAllTracking();
+    updateConsentMode(consentData);
+    
+    // Initialize tracking if scripts are present
+    if (window.dataLayer) {
+        window.dataLayer.push({'event': 'consent_update', 'consent': 'granted'});
+    }
+    
+    if (config.analytics.enabled) {
+        updateConsentStats('accepted');
+    }
+    
+    // Optional: Fire initial page view events
+    fireInitialTrackingEvents();
+}
 
-// 1. REPLACE YOUR EXISTING autoBlockCookies() FUNCTION
-//    with this complete version
+// Helper function to fire initial tracking
+function fireInitialTrackingEvents() {
+    // Google Analytics
+    if (typeof window.ga === 'function') {
+        window.ga('send', 'pageview');
+    }
+    
+    // Facebook Pixel
+    if (typeof window.fbq === 'function') {
+        window.fbq('track', 'PageView');
+    }
+    
+    // Microsoft Clarity
+    if (typeof window.clarity === 'function') {
+        window.clarity('set', 'consent', 'granted');
+    }
+}
 
-// 2. KEEP ALL YOUR EXISTING CODE exactly as is, just
-//    replace those two functions
-
-// 3. NO OTHER CHANGES NEEDED - works with WordPress,
-//    Shopify, PrestaShop, Joomla, Webflow, etc.
-
-// 4. WHEN USER GIVES CONSENT:
-//    - Set the cookie_consent cookie
-//    - Reload the page to allow tracking scripts
 
 
 
