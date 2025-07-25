@@ -1,6 +1,9 @@
-
-
-
+/**
+you can change the cookie category description text by this class. like you can change the essential cookies description text size.
+  .broadcookiedes {
+      font-size: 15px;
+    } 
+ */
 
 const EU_COUNTRIES = [
   "AL", // Albania
@@ -3907,8 +3910,6 @@ function hideFloatingButton() {
 
 // Cookie consent functions
 function acceptAllCookies() {
-     // Restore normal cookie behavior
-    delete document.cookie;
     const consentData = {
         status: 'accepted',
         gcs: 'G111', // Explicit GCS signal for all granted
@@ -4238,43 +4239,6 @@ function loadPerformanceCookies() {
     // This would typically load performance optimization scripts
 }
 
-// Block 3rd party cookies until consent is given
-function blockThirdPartyCookies() {
-    // Only block if consent hasn't been given yet
-    if (!getCookie('cookie_consent')) {
-        // Save original cookie setter
-        const originalCookie = document.__lookupSetter__('cookie');
-        
-        Object.defineProperty(document, 'cookie', {
-            set: function(cookie) {
-                // Always allow cookies that:
-                // 1. Are from our domain OR
-                // 2. Don't specify a domain OR
-                // 3. Are for the cookie consent banner
-                if (cookie.includes(`domain=${window.location.hostname}`) || 
-                    !cookie.includes('domain=') ||
-                    cookie.startsWith('cookie_consent=') ||
-                    cookie.startsWith('first_visit_date=') ||
-                    cookie.startsWith('dashboard_auth=') ||
-                    cookie.startsWith('preferred_language=')) {
-                    originalCookie.call(document, cookie);
-                }
-                // Block all other cookies (3rd party)
-                else {
-                    console.log('Blocked 3rd party cookie:', cookie.split(';')[0]);
-                }
-            },
-            get: function() {
-                return originalCookie.call(document);
-            }
-        });
-    }
-}
-
-
-
-
-
 // Main execution flow
 document.addEventListener('DOMContentLoaded', async function() {
     // Ensure location data is loaded first
@@ -4292,15 +4256,63 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Current location data:', locationData);
     } catch (e) {
         console.error('Failed to load location data:', e);
+
+
+
+
+
+
+// 1. REPLACE YOUR autoBlockCookies() WITH THIS:
+function autoBlockCookies() {
+    if (!getCookie('cookie_consent')) {
+        // Delete existing non-essential cookies
+        const cookies = document.cookie.split(';');
+        cookies.forEach(cookie => {
+            const [nameValue] = cookie.trim().split('=');
+            const name = nameValue.trim();
+            let isEssential = false;
+            
+            for (const pattern in cookieDatabase) {
+                if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
+                    isEssential = true;
+                    break;
+                }
+            }
+            
+            if (!isEssential && name && name !== 'cookie_consent') {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+            }
+        });
+
+        // Block all tracking scripts
+        window._trackingBlocked = true;
+        blockAllTrackingScripts();
     }
+}
 
-
-
-
-// =============================================
-// ENHANCED AUTO-BLOCKING FOR ALL PLATFORMS
-// =============================================
-
+// 2. ADD THIS NEW FUNCTION (PLACE AFTER autoBlockCookies):
+function unblockAllTracking() {
+    window._trackingBlocked = false;
+    
+    // Restore Google Analytics
+    if (typeof window.ga === 'function') {
+        window.ga('create', 'UA-XXXXX-Y', 'auto');
+        window.ga('send', 'pageview');
+    }
+    
+    // Restore Facebook Pixel
+    if (typeof window.fbq === 'function') {
+        window.fbq('init', 'YOUR_PIXEL_ID');
+        window.fbq('track', 'PageView');
+    }
+    
+    // Restore Microsoft Clarity
+    if (typeof window.clarity === 'function') {
+        window.clarity('identify');
+    }
+    
+    // Restore other trackers as needed...
+}
 
 // 3. UPDATE YOUR acceptAllCookies() FUNCTION:
 function acceptAllCookies() {
@@ -4354,79 +4366,17 @@ function fireInitialTrackingEvents() {
 
 
 
-  
-// 3. UPDATE YOUR acceptAllCookies() FUNCTION:
-function acceptAllCookies() {
-    const consentData = {
-        status: 'accepted',
-        categories: {
-            functional: true,
-            analytics: true,
-            performance: true,
-            advertising: true,
-            uncategorized: true
-        },
-        timestamp: new Date().getTime()
-    };
-    
-    setCookie('cookie_consent', JSON.stringify(consentData), 365);
-    unblockAllTracking();
-    updateConsentMode(consentData);
-    
-    // Initialize tracking if scripts are present
-    if (window.dataLayer) {
-        window.dataLayer.push({'event': 'consent_update', 'consent': 'granted'});
+
+
+
+
+
+
+
+
+
+      
     }
-    
-    if (config.analytics.enabled) {
-        updateConsentStats('accepted');
-    }
-    
-    // Optional: Fire initial page view events
-    fireInitialTrackingEvents();
-}
-
-// Helper function to fire initial tracking
-function fireInitialTrackingEvents() {
-    // Google Analytics
-    if (typeof window.ga === 'function') {
-        window.ga('send', 'pageview');
-    }
-    
-    // Facebook Pixel
-    if (typeof window.fbq === 'function') {
-        window.fbq('track', 'PageView');
-    }
-    
-    // Microsoft Clarity
-    if (typeof window.clarity === 'function') {
-        window.clarity('set', 'consent', 'granted');
-    }
-}
-
-
-
-
-
-  
-
-// Helper function to block cookie-setting scripts
-function blockCookieScripts() {
-    // Example: Block Google Analytics
-    window['ga-disable-UA-XXXXX-Y'] = true;
-    
-    // Example: Block Facebook Pixel
-    window['fbq'] = function() {
-        console.log('Facebook Pixel blocked - no consent given');
-    };
-    
-    // Add other tracking scripts you need to block
-}
-
-// Call this function early in your initialization
-autoBlockCookies();
-
-  
     // Store query parameters on page load
     storeQueryParams();
    
