@@ -4345,15 +4345,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         _consentManager.originalFunctions.fbq = window['fbq'];
     }
     
-    // Microsoft Clarity/UET
-    if (config.autoBlocking.blockCategories.advertising) {
-     
-        window['uetq'] = window['uetq'] || [];
-        _consentManager.originalFunctions.uetqPush = window['uetq'].push;
-        window['uetq'].push = function() {
-            console.log('UET blocked - consent not given');
-        };
-    }
+
     
     // TikTok Pixel
     if (config.autoBlocking.blockCategories.advertising) {
