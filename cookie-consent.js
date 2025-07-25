@@ -4277,28 +4277,29 @@ document.addEventListener('DOMContentLoaded', async function() {
 // COMPLETE TRACKING BLOCKING/UNBLOCKING SYSTEM
 // =============================================
 
-// Add this to your config object (at the top with other config)
-const config = {
-    // ... your existing config ...
-    
-    // Auto-blocking configuration
-    autoBlocking: {
-        enabled: true,            // Enable/disable auto-blocking of tracking scripts
-        blockUntilConsent: true,  // Block all tracking until consent is given
-        unblockOnAccept: true,    // Automatically unblock when consent is given
-        blockCategories: {        // Which categories to block by default
-            advertising: true,
-            analytics: true,
-            performance: true
-        }
-    },
-    
-    // ... rest of your existing config ...
-};
 
-// ==================== AUTO-BLOCKING SYSTEM ====================
+
+
+// ==================== COMPLETE AUTO-BLOCKING SYSTEM ====================
 (function() {
     if (!config.autoBlocking.enabled) return;
+
+    // Helper function to delete cookies
+    function deleteCookie(name) {
+        const hostParts = window.location.hostname.split('.');
+        const domains = [
+            window.location.hostname,
+            '.' + window.location.hostname,
+            ...Array.from({length: hostParts.length - 1}, (_, i) => 
+                '.' + hostParts.slice(i).join('.'))
+        ];
+        
+        domains.forEach(domain => {
+            document.cookie = `${name}=; Path=/; Domain=${domain}; ` +
+                             `Expires=Thu, 01 Jan 1970 00:00:01 GMT; ` +
+                             `SameSite=Lax; Secure`;
+        });
+    }
 
     // Store original cookie functions before any scripts run
     const originalCookieGetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').get;
@@ -4315,6 +4316,12 @@ const config = {
             // Allow essential cookies and consent cookie
             if (cookieName === 'cookie_consent' || isEssentialCookie(cookieName)) {
                 return originalCookieSetter.call(document, value);
+            }
+            
+            // Specifically block Microsoft UET cookies
+            if (cookieName.startsWith('_uet')) {
+                console.log('Blocked UET cookie:', cookieName);
+                return false;
             }
             
             console.log('Blocked pre-consent cookie:', cookieName);
@@ -4334,7 +4341,12 @@ const config = {
     window._consentManager = {
         blocked: config.autoBlocking.blockUntilConsent,
         categories: config.autoBlocking.blockCategories,
-        originalFunctions: {}
+        originalFunctions: {},
+        deleteUetCookies: function() {
+            deleteCookie('_uetsid');
+            deleteCookie('_uetvid');
+            deleteCookie('_uetmsclkid');
+        }
     };
 
     // ========== PLATFORM-SPECIFIC BLOCKING ==========
@@ -4364,14 +4376,42 @@ const config = {
         _consentManager.originalFunctions.fbq = window['fbq'];
     }
     
-    // Microsoft Clarity/UET
+    // Microsoft Clarity/UET - Enhanced blocking
     if (config.autoBlocking.blockCategories.advertising) {
+        // Block Clarity
         window['clarity'] = function(){};
+        
+        // Block UET queue
         window['uetq'] = window['uetq'] || [];
         _consentManager.originalFunctions.uetqPush = window['uetq'].push;
         window['uetq'].push = function() {
             console.log('UET blocked - consent not given');
+            return false; // Prevent actual execution
         };
+        
+        // Block UET script loading
+        const originalCreateElement = document.createElement;
+        document.createElement = function(tagName) {
+            if (tagName.toLowerCase() === 'script') {
+                const script = originalCreateElement.call(document, tagName);
+                const originalSrcSetter = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src').set;
+                
+                Object.defineProperty(script, 'src', {
+                    set: function(value) {
+                        if (value.includes('bat.bing.com')) {
+                            console.log('Blocked UET script load');
+                            return false;
+                        }
+                        return originalSrcSetter.call(this, value);
+                    }
+                });
+                return script;
+            }
+            return originalCreateElement.call(document, tagName);
+        };
+        
+        // Delete any existing UET cookies
+        _consentManager.deleteUetCookies();
     }
     
     // TikTok Pixel
@@ -4436,6 +4476,18 @@ const config = {
             window['lintrk'] = this.originalFunctions.lintrk;
             window['pintrk'] = this.originalFunctions.pintrk;
             
+            // Initialize UET if configured
+            if (config.uetConfig.enabled && config.uetConfig.defaultTagId) {
+                const script = document.createElement('script');
+                script.src = 'https://bat.bing.com/bat.js';
+                script.async = true;
+                script.onload = function() {
+                    window.uetq.push('set', 'msd', config.uetConfig.msd || window.location.hostname);
+                    window.uetq.push('set', 'tagId', config.uetConfig.defaultTagId);
+                };
+                document.head.appendChild(script);
+            }
+            
             // Initialize pixels if they were attempted to load
             if (window.fbq && !window.fbq.loaded) {
                 window.fbq('init', 'YOUR_PIXEL_ID');
@@ -4457,6 +4509,13 @@ const config = {
         if (config.autoBlocking.blockCategories.advertising) this.unblock('advertising');
         if (config.autoBlocking.blockCategories.performance) this.unblock('performance');
     };
+    
+    // Periodically check for and delete UET cookies (in case they slip through)
+    setInterval(() => {
+        if (window._consentManager.blocked) {
+            window._consentManager.deleteUetCookies();
+        }
+    }, 1000);
 })();
 
 // ==================== UPDATED CONSENT FUNCTIONS ====================
@@ -4523,6 +4582,11 @@ function saveCustomSettings() {
 
 // ==================== INITIALIZATION ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // Delete any UET cookies that might have been set before our blocker
+    if (config.autoBlocking.enabled && config.autoBlocking.blockCategories.advertising) {
+        window._consentManager.deleteUetCookies();
+    }
+
     // Check existing consent
     const consentCookie = getCookie('cookie_consent');
     if (consentCookie && config.autoBlocking.enabled) {
@@ -4541,11 +4605,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
-
-
-
-
       
 
 
