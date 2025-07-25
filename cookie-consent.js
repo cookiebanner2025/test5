@@ -4267,6 +4267,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 // COMPLETE TRACKING BLOCKING/UNBLOCKING SYSTEM
 // =============================================
 
+// Enhanced blocking/unblocking system with granular control
 function autoBlockCookies() {
     if (!getCookie('cookie_consent')) {
         // Delete existing non-essential cookies
@@ -4288,8 +4289,12 @@ function autoBlockCookies() {
             }
         });
 
-        // Block all tracking scripts
-        window._trackingBlocked = true;
+        // Block all tracking scripts by default
+        window._trackingBlocked = {
+            analytics: true,
+            advertising: true,
+            performance: true
+        };
         blockAllTrackingScripts();
     }
 }
@@ -4297,112 +4302,155 @@ function autoBlockCookies() {
 function blockAllTrackingScripts() {
     if (!window._trackingBlocked) return;
 
-    // 1. ANALYTICS PLATFORMS
-    // Google
-    window['ga-disable-UA-XXXXX-Y'] = true;
-    window['ga-disable-G-XXXXXX'] = true;
-    window['ga'] = window['ga'] || function() { console.log('GA blocked'); };
-    window['gtag'] = function(){ console.log('GTag blocked'); };
-    window['dataLayer'] = window['dataLayer'] || [];
-    window['dataLayer'].push = function(){ console.log('GTM blocked'); };
-    
-    // Adobe Analytics
-    window['s'] = window['s'] || { t:function(){ return false; } };
-    
-    // Matomo
-    window['_paq'] = window['_paq'] || [];
-    window['_paq'].push = function(){ console.log('Matomo blocked'); };
-    
-    // 2. MARKETING PLATFORMS
-    // Facebook/Meta
-    window['fbq'] = function() { console.log('FB Pixel blocked'); };
-    
-    // Microsoft
-    window['clarity'] = function(){ return { identify:function(){}, set:function(){} }; };
-    window['uetq'] = window['uetq'] || [];
-    window['uetq'].push = function(){ console.log('UET blocked'); };
-    
-    // TikTok
-    window['ttq'] = window['ttq'] || { track: function(){} };
-    
-    // LinkedIn
-    window['_linkedin_data_partner_ids'] = [];
-    window['lintrk'] = function(){ return { track: function(){} } };
-    
-    // Pinterest
-    window['pintrk'] = window['pintrk'] || function(){};
-    
-    // Twitter (X)
-    window['twq'] = function(){ console.log('Twitter Pixel blocked'); };
-    
-    // Snapchat
-    window['snaptr'] = function(){};
-    
-    // Reddit
-    window['rdt'] = function(){};
-    
-    // Quora
-    window['quora'] = { disableTracking: true };
-    
-    // 3. OTHER TRACKING
-    // Hotjar
-    window['hj'] = window['hj'] || function(){};
-    
-    // Crazy Egg
-    window['CE'] = { init: function(){} };
-    
-    // Optimizely
-    window['optimizely'] = [];
-    
-    console.log('All tracking platforms blocked - awaiting consent');
+    // ========== ANALYTICS PLATFORMS ==========
+    if (window._trackingBlocked.analytics) {
+        // Google Analytics
+        window['ga-disable-UA-XXXXX-Y'] = true;
+        window['ga-disable-G-XXXXXX'] = true;
+        window['ga'] = window['ga'] || function() { console.log('GA blocked'); };
+        
+        // Google Tag Manager
+        window['gtag'] = function(){ console.log('GTag blocked'); };
+        window['dataLayer'] = window['dataLayer'] || [];
+        window['dataLayer'].push = function(){ console.log('GTM blocked'); };
+        
+        // Adobe Analytics
+        window['s'] = window['s'] || { t:function(){ return false; } };
+        
+        // Hotjar
+        window['hj'] = window['hj'] || function(){};
+        
+        // Matomo
+        window['_paq'] = window['_paq'] || [];
+        window['_paq'].push = function(){ console.log('Matomo blocked'); };
+        
+        // Amplitude
+        window['amplitude'] = { getInstance: function(){ return { logEvent: function(){} } } };
+        
+        // Mixpanel
+        window['mixpanel'] = { track: function(){}, identify: function(){} };
+    }
+
+    // ========== ADVERTISING PLATFORMS ==========
+    if (window._trackingBlocked.advertising) {
+        // Google Ads
+        window['google_conversion_id'] = null;
+        window['google_conversion_label'] = null;
+        window['google_remarketing_only'] = false;
+        window['google_tag_params'] = null;
+        
+        // Facebook Pixel
+        window['fbq'] = function() { console.log('FB Pixel blocked'); };
+        window['_fbq'] = window['fbq'];
+        
+        // Microsoft UET
+        window['uetq'] = window['uetq'] || [];
+        window['uetq'].push = function(){ console.log('UET blocked'); };
+        
+        // TikTok
+        window['ttq'] = window['ttq'] || { track: function(){} };
+        
+        // LinkedIn
+        window['_linkedin_data_partner_ids'] = [];
+        window['lintrk'] = function(){ return { track: function(){} } };
+        
+        // Pinterest
+        window['pintrk'] = window['pintrk'] || function(){};
+        
+        // Criteo
+        window['criteo_q'] = window['criteo_q'] || [];
+        window['criteo_q'].push = function(){ console.log('Criteo blocked'); };
+        
+        // TradeDesk
+        window['_ttq'] = window['_ttq'] || [];
+        window['_ttq'].push = function(){ console.log('TradeDesk blocked'); };
+    }
+
+    // ========== PERFORMANCE PLATFORMS ==========
+    if (window._trackingBlocked.performance) {
+        // Google Optimize
+        window['google_optimize'] = null;
+        
+        // VWO
+        window['_vis_opt_queue'] = [];
+        window['_vis_opt_queue'].push = function(){ console.log('VWO blocked'); };
+    }
+
+    console.log('Tracking platforms blocked according to consent preferences');
 }
 
-function unblockAllTracking() {
-    window._trackingBlocked = false;
-    
-    // 1. ANALYTICS PLATFORMS
-    // Google Analytics
-    if (typeof window.ga === 'function') {
-        window.ga('create', 'UA-XXXXX-Y', 'auto');
-        window.ga('send', 'pageview');
+function unblockTrackingByCategory(category) {
+    if (!window._trackingBlocked) return;
+
+    // Update tracking blocked status
+    window._trackingBlocked[category] = false;
+
+    // ========== ANALYTICS UNBLOCK ==========
+    if (category === 'analytics') {
+        // Google Analytics
+        if (typeof window.ga === 'function') {
+            window.ga('create', 'UA-XXXXX-Y', 'auto');
+            window.ga('send', 'pageview');
+        }
+        
+        // Google Tag Manager
+        if (window.dataLayer) {
+            window.dataLayer.push = Array.prototype.push;
+            window.dataLayer.push({'event': 'consent_granted_analytics'});
+        }
+        
+        // Adobe Analytics
+        if (window.s && window.s.t) {
+            window.s.t = function(){ return true; };
+        }
+        
+        // Hotjar
+        if (window.hj) {
+            // Hotjar typically initializes itself when unblocked
+        }
     }
-    
-    // Google Tag Manager
-    if (window.dataLayer) {
-        window.dataLayer.push = Array.prototype.push;
-        window.dataLayer.push({'event': 'consent_granted'});
+
+    // ========== ADVERTISING UNBLOCK ==========
+    if (category === 'advertising') {
+        // Facebook Pixel
+        if (typeof window.fbq === 'function') {
+            window.fbq('init', 'YOUR_PIXEL_ID');
+            window.fbq('track', 'PageView');
+        }
+        
+        // Microsoft UET
+        if (window.uetq) {
+            window.uetq.push = Array.prototype.push;
+        }
+        
+        // TikTok
+        if (window.ttq && window.ttq.track) {
+            window.ttq.track('ViewContent');
+        }
+        
+        // LinkedIn
+        if (window.lintrk) {
+            window.lintrk('track', { conversion_id: 'YOUR_ID' });
+        }
     }
-    
-    // Adobe Analytics
-    if (window.s && window.s.t) {
-        window.s.t = function(){ return true; };
+
+    // ========== PERFORMANCE UNBLOCK ==========
+    if (category === 'performance') {
+        // Google Optimize
+        if (window.google_optimize === null) {
+            // Initialize Optimize if needed
+        }
+        
+        // VWO
+        if (window._vis_opt_queue) {
+            window._vis_opt_queue.push = Array.prototype.push;
+        }
     }
-    
-    // 2. MARKETING PLATFORMS
-    // Facebook Pixel
-    if (typeof window.fbq === 'function') {
-        window.fbq('init', 'YOUR_PIXEL_ID');
-        window.fbq('track', 'PageView');
-    }
-    
-    // Microsoft Clarity
-    if (typeof window.clarity === 'function') {
-        window.clarity('identify');
-    }
-    
-    // TikTok
-    if (window.ttq && window.ttq.track) {
-        window.ttq.track('ViewContent');
-    }
-    
-    // LinkedIn Insight Tag
-    if (window.lintrk) {
-        window.lintrk('track', { conversion_id: 'YOUR_ID' });
-    }
-    
-    console.log('All tracking platforms unblocked');
+
+    console.log(`Unblocked ${category} tracking`);
 }
 
+// Update your consent functions to use granular unblocking
 function acceptAllCookies() {
     const consentData = {
         status: 'accepted',
@@ -4417,27 +4465,70 @@ function acceptAllCookies() {
     };
     
     setCookie('cookie_consent', JSON.stringify(consentData), 365);
-    unblockAllTracking();
+    
+    // Unblock all categories
+    unblockTrackingByCategory('analytics');
+    unblockTrackingByCategory('advertising');
+    unblockTrackingByCategory('performance');
+    
     updateConsentMode(consentData);
     
     if (config.analytics.enabled) {
         updateConsentStats('accepted');
     }
-    
-    fireInitialTrackingEvents();
 }
 
-function fireInitialTrackingEvents() {
-    // Analytics
-    if (typeof window.ga === 'function') window.ga('send', 'pageview');
-    if (window.dataLayer) window.dataLayer.push({'event': 'page_view'});
+function saveCustomSettings() {
+    const analyticsChecked = document.querySelector('input[data-category="analytics"]').checked;
+    const advertisingChecked = document.querySelector('input[data-category="advertising"]').checked;
+    const performanceChecked = document.querySelector('input[data-category="performance"]').checked;
+
+    const consentData = {
+        status: 'custom',
+        categories: {
+            functional: true,
+            analytics: analyticsChecked,
+            performance: performanceChecked,
+            advertising: advertisingChecked,
+            uncategorized: document.querySelector('input[data-category="uncategorized"]') ? 
+                document.querySelector('input[data-category="uncategorized"]').checked : false
+        },
+        timestamp: new Date().getTime()
+    };
     
-    // Marketing
-    if (typeof window.fbq === 'function') window.fbq('track', 'PageView');
-    if (typeof window.clarity === 'function') window.clarity('set', 'consent', 'granted');
-    if (window.ttq && window.ttq.track) window.ttq.track('ViewContent');
-    if (window.lintrk) window.lintrk('track', { conversion_id: 'YOUR_ID' });
-    if (window.pintrk) window.pintrk('load', 'YOUR_TAG_ID');
+    setCookie('cookie_consent', JSON.stringify(consentData), 365);
+    
+    // Granular unblocking based on consent
+    if (analyticsChecked) unblockTrackingByCategory('analytics');
+    if (advertisingChecked) unblockTrackingByCategory('advertising');
+    if (performanceChecked) unblockTrackingByCategory('performance');
+    
+    updateConsentMode(consentData);
+    
+    if (config.analytics.enabled) {
+        updateConsentStats('custom');
+    }
+    
+    // Fire appropriate tracking events based on consent
+    if (analyticsChecked) {
+        window.dataLayer.push({
+            'event': 'analytics_cookie_accepted',
+            'consent_mode': {
+                'analytics_storage': 'granted'
+            },
+            'timestamp': new Date().toISOString()
+        });
+    }
+    
+    if (advertisingChecked) {
+        window.dataLayer.push({
+            'event': 'marketing_cookie_accepted',
+            'consent_mode': {
+                'ad_storage': 'granted'
+            },
+            'timestamp': new Date().toISOString()
+        });
+    }
 }
 
 
