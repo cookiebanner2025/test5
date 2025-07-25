@@ -66,7 +66,17 @@ const config = {
     // Privacy policy URL (configurable)
     privacyPolicyUrl: 'https://yourdomain.com/privacy-policy', // Add your full privacy policy URL here
 
-
+  // Auto-blocking configuration
+    autoBlocking: {
+        enabled: true,            // Enable/disable auto-blocking of tracking scripts
+        blockUntilConsent: true,  // Block all tracking until consent is given
+        unblockOnAccept: true,    // Automatically unblock when consent is given
+        blockCategories: {        // Which categories to block by default
+            advertising: true,
+            analytics: true,
+            performance: true
+        }
+    },
    
     // Query Parameter Storage Configuration
     queryParamsConfig: {
@@ -4267,8 +4277,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 // COMPLETE TRACKING BLOCKING/UNBLOCKING SYSTEM
 // =============================================
 
-// ==================== CORE BLOCKING SYSTEM ====================
+// ==================== AUTO-BLOCKING SYSTEM ====================
 (function() {
+    if (!config.autoBlocking.enabled) return;
+
     // Store original cookie functions before any scripts run
     const originalCookieGetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').get;
     const originalCookieSetter = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie').set;
@@ -4301,70 +4313,82 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Block all tracking scripts by default
     window._consentManager = {
-        blocked: true,
-        categories: {
-            analytics: true,
-            advertising: true,
-            performance: true
-        },
+        blocked: config.autoBlocking.blockUntilConsent,
+        categories: config.autoBlocking.blockCategories,
         originalFunctions: {}
     };
 
     // ========== PLATFORM-SPECIFIC BLOCKING ==========
     
     // Google Analytics/GA4
-    window['ga-disable-G-XXXXXX'] = true; // Replace with your GA4 ID
-    window['ga'] = window['ga'] || function() {
-        console.log('GA blocked - consent not given');
-    };
+    if (config.autoBlocking.blockCategories.analytics) {
+        window['ga-disable-G-XXXXXX'] = true; // Replace with your GA4 ID
+        window['ga'] = window['ga'] || function() {
+            console.log('GA blocked - consent not given');
+        };
+    }
     
     // Google Tag Manager
-    window['dataLayer'] = window['dataLayer'] || [];
-    _consentManager.originalFunctions.dataLayerPush = window['dataLayer'].push;
-    window['dataLayer'].push = function() {
-        console.log('GTM blocked - consent not given');
-    };
+    if (config.autoBlocking.blockCategories.analytics) {
+        window['dataLayer'] = window['dataLayer'] || [];
+        _consentManager.originalFunctions.dataLayerPush = window['dataLayer'].push;
+        window['dataLayer'].push = function() {
+            console.log('GTM blocked - consent not given');
+        };
+    }
     
     // Facebook Pixel
-    window['fbq'] = function() {
-        console.log('FB Pixel blocked - consent not given');
-    };
-    _consentManager.originalFunctions.fbq = window['fbq'];
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['fbq'] = function() {
+            console.log('FB Pixel blocked - consent not given');
+        };
+        _consentManager.originalFunctions.fbq = window['fbq'];
+    }
     
     // Microsoft Clarity/UET
-    window['clarity'] = function(){};
-    window['uetq'] = window['uetq'] || [];
-    _consentManager.originalFunctions.uetqPush = window['uetq'].push;
-    window['uetq'].push = function() {
-        console.log('UET blocked - consent not given');
-    };
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['clarity'] = function(){};
+        window['uetq'] = window['uetq'] || [];
+        _consentManager.originalFunctions.uetqPush = window['uetq'].push;
+        window['uetq'].push = function() {
+            console.log('UET blocked - consent not given');
+        };
+    }
     
     // TikTok Pixel
-    window['ttq'] = {
-        track: function() {
-            console.log('TikTok Pixel blocked - consent not given');
-        }
-    };
-    _consentManager.originalFunctions.ttq = window['ttq'];
-    
-    // LinkedIn Insight Tag
-    window['lintrk'] = function() {
-        return {
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['ttq'] = {
             track: function() {
-                console.log('LinkedIn Insight blocked - consent not given');
+                console.log('TikTok Pixel blocked - consent not given');
             }
         };
-    };
-    _consentManager.originalFunctions.lintrk = window['lintrk'];
+        _consentManager.originalFunctions.ttq = window['ttq'];
+    }
+    
+    // LinkedIn Insight Tag
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['lintrk'] = function() {
+            return {
+                track: function() {
+                    console.log('LinkedIn Insight blocked - consent not given');
+                }
+            };
+        };
+        _consentManager.originalFunctions.lintrk = window['lintrk'];
+    }
     
     // Pinterest Pixel
-    window['pintrk'] = function() {
-        console.log('Pinterest Pixel blocked - consent not given');
-    };
-    _consentManager.originalFunctions.pintrk = window['pintrk'];
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['pintrk'] = function() {
+            console.log('Pinterest Pixel blocked - consent not given');
+        };
+        _consentManager.originalFunctions.pintrk = window['pintrk'];
+    }
     
     // Hotjar
-    window['hj'] = window['hj'] || function() {};
+    if (config.autoBlocking.blockCategories.analytics) {
+        window['hj'] = window['hj'] || function() {};
+    }
     
     // ========== CONSENT MANAGEMENT ==========
     window._consentManager.unblock = function(category) {
@@ -4374,7 +4398,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         this.categories[category] = false;
         
         // Analytics unblock
-        if (category === 'analytics') {
+        if (category === 'analytics' && config.autoBlocking.blockCategories.analytics) {
             window['ga-disable-G-XXXXXX'] = false;
             window['dataLayer'].push = this.originalFunctions.dataLayerPush;
             
@@ -4386,7 +4410,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         // Advertising unblock
-        if (category === 'advertising') {
+        if (category === 'advertising' && config.autoBlocking.blockCategories.advertising) {
             window['fbq'] = this.originalFunctions.fbq;
             window['uetq'].push = this.originalFunctions.uetqPush;
             window['ttq'] = this.originalFunctions.ttq;
@@ -4401,7 +4425,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         
         // Performance unblock
-        if (category === 'performance') {
+        if (category === 'performance' && config.autoBlocking.blockCategories.performance) {
             // Unblock performance tracking scripts
         }
         
@@ -4410,13 +4434,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     window._consentManager.acceptAll = function() {
         this.blocked = false;
-        this.unblock('analytics');
-        this.unblock('advertising');
-        this.unblock('performance');
+        if (config.autoBlocking.blockCategories.analytics) this.unblock('analytics');
+        if (config.autoBlocking.blockCategories.advertising) this.unblock('advertising');
+        if (config.autoBlocking.blockCategories.performance) this.unblock('performance');
     };
 })();
 
-// ==================== CONSENT FUNCTIONS ====================
+// ==================== UPDATED CONSENT FUNCTIONS ====================
 function acceptAllCookies() {
     const consentData = {
         status: 'accepted',
@@ -4431,7 +4455,12 @@ function acceptAllCookies() {
     };
     
     setCookie('cookie_consent', JSON.stringify(consentData), 365);
-    window._consentManager.acceptAll();
+    
+    // Only unblock if configured to do so
+    if (config.autoBlocking.enabled && config.autoBlocking.unblockOnAccept) {
+        window._consentManager.acceptAll();
+    }
+    
     updateConsentMode(consentData);
     
     if (config.analytics.enabled) {
@@ -4459,10 +4488,12 @@ function saveCustomSettings() {
     
     setCookie('cookie_consent', JSON.stringify(consentData), 365);
     
-    // Granular unblocking
-    if (analyticsChecked) window._consentManager.unblock('analytics');
-    if (advertisingChecked) window._consentManager.unblock('advertising');
-    if (performanceChecked) window._consentManager.unblock('performance');
+    // Granular unblocking if configured
+    if (config.autoBlocking.enabled && config.autoBlocking.unblockOnAccept) {
+        if (analyticsChecked) window._consentManager.unblock('analytics');
+        if (advertisingChecked) window._consentManager.unblock('advertising');
+        if (performanceChecked) window._consentManager.unblock('performance');
+    }
     
     updateConsentMode(consentData);
     
@@ -4475,15 +4506,19 @@ function saveCustomSettings() {
 document.addEventListener('DOMContentLoaded', function() {
     // Check existing consent
     const consentCookie = getCookie('cookie_consent');
-    if (consentCookie) {
+    if (consentCookie && config.autoBlocking.enabled) {
         const consentData = JSON.parse(consentCookie);
         
         if (consentData.status === 'accepted') {
-            window._consentManager.acceptAll();
+            if (config.autoBlocking.unblockOnAccept) {
+                window._consentManager.acceptAll();
+            }
         } else if (consentData.status === 'custom') {
-            if (consentData.categories.analytics) window._consentManager.unblock('analytics');
-            if (consentData.categories.advertising) window._consentManager.unblock('advertising');
-            if (consentData.categories.performance) window._consentManager.unblock('performance');
+            if (config.autoBlocking.unblockOnAccept) {
+                if (consentData.categories.analytics) window._consentManager.unblock('analytics');
+                if (consentData.categories.advertising) window._consentManager.unblock('advertising');
+                if (consentData.categories.performance) window._consentManager.unblock('performance');
+            }
         }
     }
 });
