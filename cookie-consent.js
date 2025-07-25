@@ -4347,7 +4347,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Microsoft Clarity/UET
     if (config.autoBlocking.blockCategories.advertising) {
-        window['clarity'] = function(){};
+     
         window['uetq'] = window['uetq'] || [];
         _consentManager.originalFunctions.uetqPush = window['uetq'].push;
         window['uetq'].push = function() {
