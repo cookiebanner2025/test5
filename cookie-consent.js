@@ -4302,58 +4302,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 // =============================================
 
 
-// 1. REPLACE YOUR autoBlockCookies() WITH THIS:
-function autoBlockCookies() {
-    if (!getCookie('cookie_consent')) {
-        // Delete existing non-essential cookies
-        const cookies = document.cookie.split(';');
-        cookies.forEach(cookie => {
-            const [nameValue] = cookie.trim().split('=');
-            const name = nameValue.trim();
-            let isEssential = false;
-            
-            for (const pattern in cookieDatabase) {
-                if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
-                    isEssential = true;
-                    break;
-                }
-            }
-            
-            if (!isEssential && name && name !== 'cookie_consent') {
-                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
-            }
-        });
-
-        // Block all tracking scripts
-        window._trackingBlocked = true;
-        blockAllTrackingScripts();
-    }
-}
-
-// 2. ADD THIS NEW FUNCTION (PLACE AFTER autoBlockCookies):
-function unblockAllTracking() {
-    window._trackingBlocked = false;
-    
-    // Restore Google Analytics
-    if (typeof window.ga === 'function') {
-        window.ga('create', 'UA-XXXXX-Y', 'auto');
-        window.ga('send', 'pageview');
-    }
-    
-    // Restore Facebook Pixel
-    if (typeof window.fbq === 'function') {
-        window.fbq('init', 'YOUR_PIXEL_ID');
-        window.fbq('track', 'PageView');
-    }
-    
-    // Restore Microsoft Clarity
-    if (typeof window.clarity === 'function') {
-        window.clarity('identify');
-    }
-    
-    // Restore other trackers as needed...
-}
-
 // 3. UPDATE YOUR acceptAllCookies() FUNCTION:
 function acceptAllCookies() {
     const consentData = {
