@@ -4277,6 +4277,25 @@ document.addEventListener('DOMContentLoaded', async function() {
 // COMPLETE TRACKING BLOCKING/UNBLOCKING SYSTEM
 // =============================================
 
+// Add this to your config object (at the top with other config)
+const config = {
+    // ... your existing config ...
+    
+    // Auto-blocking configuration
+    autoBlocking: {
+        enabled: true,            // Enable/disable auto-blocking of tracking scripts
+        blockUntilConsent: true,  // Block all tracking until consent is given
+        unblockOnAccept: true,    // Automatically unblock when consent is given
+        blockCategories: {        // Which categories to block by default
+            advertising: true,
+            analytics: true,
+            performance: true
+        }
+    },
+    
+    // ... rest of your existing config ...
+};
+
 // ==================== AUTO-BLOCKING SYSTEM ====================
 (function() {
     if (!config.autoBlocking.enabled) return;
@@ -4345,7 +4364,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         _consentManager.originalFunctions.fbq = window['fbq'];
     }
     
-
+    // Microsoft Clarity/UET
+    if (config.autoBlocking.blockCategories.advertising) {
+        window['clarity'] = function(){};
+        window['uetq'] = window['uetq'] || [];
+        _consentManager.originalFunctions.uetqPush = window['uetq'].push;
+        window['uetq'].push = function() {
+            console.log('UET blocked - consent not given');
+        };
+    }
     
     // TikTok Pixel
     if (config.autoBlocking.blockCategories.advertising) {
