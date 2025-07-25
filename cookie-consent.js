@@ -68,7 +68,7 @@ const config = {
 
   // Auto-blocking configuration
     autoBlocking: {
-        enabled: false,            // Enable/disable auto-blocking of tracking scripts
+        enabled: true,            // Enable/disable auto-blocking of tracking scripts
         blockUntilConsent: true,  // Block all tracking until consent is given
         unblockOnAccept: true,    // Automatically unblock when consent is given
         blockCategories: {        // Which categories to block by default
