@@ -4293,6 +4293,61 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (e) {
         console.error('Failed to load location data:', e);
     }
+
+
+
+
+// Auto-block cookies before consent
+function autoBlockCookies() {
+    // Only block if no consent has been given
+    if (!getCookie('cookie_consent')) {
+        // Block all non-essential cookies
+        const cookies = document.cookie.split(';');
+        cookies.forEach(cookie => {
+            const [nameValue] = cookie.trim().split('=');
+            const name = nameValue.trim();
+            let isEssential = false;
+            
+            // Check if cookie is essential
+            for (const pattern in cookieDatabase) {
+                if (name.startsWith(pattern) && cookieDatabase[pattern].category === 'essential') {
+                    isEssential = true;
+                    break;
+                }
+            }
+            
+            // Delete non-essential cookies
+            if (!isEssential && name && name !== 'cookie_consent') {
+                document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+            }
+        });
+
+        // Block cookie-setting scripts
+        document.addEventListener('readystatechange', () => {
+            if (document.readyState === 'complete') {
+                blockCookieScripts();
+            }
+        });
+    }
+}
+
+// Helper function to block cookie-setting scripts
+function blockCookieScripts() {
+    // Example: Block Google Analytics
+    window['ga-disable-UA-XXXXX-Y'] = true;
+    
+    // Example: Block Facebook Pixel
+    window['fbq'] = function() {
+        console.log('Facebook Pixel blocked - no consent given');
+    };
+    
+    // Add other tracking scripts you need to block
+}
+
+// Call this function early in your initialization
+autoBlockCookies();
+
+  
     // Store query parameters on page load
     storeQueryParams();
    
