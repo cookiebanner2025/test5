@@ -2736,9 +2736,7 @@ function injectConsentHTML(detectedCookies, language = 'en') {
         }
 
         
-       #hidemobile {
-    display: none !important;
-}
+
         
         .cookie-btn {
             flex: 1;
@@ -2807,7 +2805,9 @@ function injectConsentHTML(detectedCookies, language = 'en') {
         }
 
 
-
+       #hidemobile {
+    display: none !important;
+}
         
         
         .cookie-consent-content p {
