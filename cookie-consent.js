@@ -1,6 +1,6 @@
 const config = {
     // Domain restriction
-    allowedDomains: ['www.yesyoudeserve.tours'],
+    allowedDomains: ['www.yesyoudeserve.tours','dev-rpractice.pantheonsite.io'],
     
     // Microsoft UET Configuration
     uetConfig: {
