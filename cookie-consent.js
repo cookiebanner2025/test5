@@ -1857,7 +1857,7 @@ function injectConsentHTML(detectedCookies, language = 'en') {
     </div>
 
     <!-- Floating Settings Button -->
-    <div id="cookieFloatingButton" class="cookie-settings-button" title="${lang.title}">
+    <div id="cookieFloatingButton" class="cookie-settings-button hidemobile" title="${lang.title}">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="none">
             <path d="M6 8H8.01V10H6V8Z" fill="currentColor"/>
             <path d="M11 11H13.01V13H11V11Z" fill="currentColor"/>
