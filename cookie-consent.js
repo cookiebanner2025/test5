@@ -2734,6 +2734,11 @@ function injectConsentHTML(detectedCookies, language = 'en') {
             padding: 20px;
             flex-direction: column;
         }
+
+        
+        #cookieFloatingButton {
+            display: none;
+        }
         
         .cookie-btn {
             flex: 1;
@@ -2803,9 +2808,7 @@ function injectConsentHTML(detectedCookies, language = 'en') {
 
 
 
-        #cookieFloatingButton {
-            display: none;
-        }
+        
         
         .cookie-consent-content p {
             font-size: 0.85rem;
