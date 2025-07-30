@@ -2736,9 +2736,9 @@ function injectConsentHTML(detectedCookies, language = 'en') {
         }
 
         
-        #cookieFloatingButton {
-            display: none;
-        }
+       #hidemobile {
+    display: none !important;
+}
         
         .cookie-btn {
             flex: 1;
